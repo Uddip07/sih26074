@@ -1,0 +1,39 @@
+{
+  "baseline_rmse": 2.633,
+  "baseline_mae": 1.026,
+  "baseline_csi_2_5mm": 0.8066,
+  "model_rmse": 0.459,
+  "model_mae": 0.266,
+  "model_csi_2_5mm": 0.9096,
+  "model_csi_10mm": 0.9321,
+  "model_csi_25mm": 0.9778,
+  "skill_score": 0.8258,
+  "skill_score_pct": "82.58%",
+  "headline_pitch": "82.6% RMSE reduction over naive block-value copy, validated via held-out panchayat validation.",
+  "top_features": [
+    [
+      "is_monsoon",
+      0.2718
+    ],
+    [
+      "historical_bias",
+      0.2087
+    ],
+    [
+      "block_forecast_rainfall",
+      0.1874
+    ],
+    [
+      "landuse_forest_pct",
+      0.1647
+    ],
+    [
+      "day_of_year",
+      0.0396
+    ],
+    [
+      "landuse_cropland_pct",
+      0.029
+    ]
+  ]
+}

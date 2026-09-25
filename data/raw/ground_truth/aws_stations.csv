@@ -1,0 +1,15 @@
+station_id,station_name,block_name,block_lgd,latitude,longitude,elevation_m,zone
+AWS_PUNE_CITY,Pune City (Shivajinagar/HQ),PUNE CITY,4521,18.5204,73.8567,560.0,Urban / Plateau
+AWS_PASHAN,Pashan Agromet Observatory,HAVELI,4515,18.539,73.7845,580.0,Foothills
+AWS_LONAVALA,Lonavala / Khandala AWS,MAVAL,4519,18.7557,73.4091,625.0,Western Ghats Crest (High Rain)
+AWS_LAVALE,Mulshi / Lavale AWS,MULSHI,4520,18.5422,73.7289,610.0,Western Ghats Foothills
+AWS_VELHE,Velhe / Torna Valley AWS,VELHE,4524,18.2934,73.6334,650.0,Western Ghats Heavy Rain
+AWS_BHOR,Bhor (Bhatghar Dam Catchment),BHOR,4513,18.1633,73.8467,590.0,Sub-Ghat Valley
+AWS_BARAMATI,Baramati KVK Agromet Station,BARAMATI,4512,18.1517,74.5772,538.0,Rain Shadow / Sugarcane Plains
+AWS_INDAPUR,Indapur (Ujani Basin),INDAPUR,4516,18.1167,75.0333,505.0,Eastern Arid Basin
+AWS_DAUND,Daund (Bhima River Basin),DAUND,4514,18.4667,74.5833,514.0,River Plain
+AWS_SHIRUR,Shirur (Ghod River Valley),SHIRUR,4523,18.8267,74.3789,560.0,Semi-Arid Central
+AWS_PURANDAR,Purandar (Saswad Horticulture Belt),PURANDAR,4522,18.34,74.03,760.0,Hilly Rain Shadow
+AWS_KHED,Khed / Chakan AWS,KHED,4518,18.75,73.85,645.0,Paddy / Potato Belt
+AWS_AMBEGAON,Ambegaon (Ghod-Dimbhe Catchment),AMBEGAON,4511,19.03,73.78,680.0,Tribal / Hilly Catchment
+AWS_JUNNAR,Junnar (Kukadi Basin Vegetable Hub),JUNNAR,4517,19.2083,73.875,660.0,Northern Valley
