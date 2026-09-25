@@ -11,7 +11,7 @@ if BASE_DIR not in sys.path:
 import pytest
 import numpy as np
 import pandas as pd
-from src.features.build_feature_table import load_static_covariates
+from src.features.build_feature_table import load_static_covariates, assemble_feature_table
 
 
 def test_static_covariates_integrity():
@@ -66,3 +66,40 @@ def test_processed_splits():
     test_pids = set(test_df["panchayat_id"].unique())
     overlap = train_pids.intersection(test_pids)
     assert len(overlap) == 0, f"Spatial leakage detected! Overlapping panchayats: {len(overlap)}"
+
+
+def test_ground_truth_source_population(tmp_path):
+    """
+    Confirm ground_truth_source column is populated with 'imerg' when matching IMERG
+    records exist and falls back to 'synthetic_orographic' otherwise.
+    """
+    static_df = load_static_covariates()
+    test_gp = str(static_df["gp_code"].iloc[0])
+
+    # Find the first available date in forecast data
+    fc_path = os.path.join(BASE_DIR, "data", "raw", "forecast", "block_forecasts.parquet")
+    fc_df = pd.read_parquet(fc_path)
+    test_date = pd.to_datetime(fc_df["date"].iloc[0]).strftime("%Y-%m-%d")
+
+    # Mock IMERG CSV with 1-2 rows
+    mock_imerg_csv = tmp_path / "mock_panchayat_imerg.csv"
+    mock_data = pd.DataFrame([
+        {"gp_code": test_gp, "date": test_date, "imerg_rainfall_mm": 55.5},
+        {"gp_code": "999999", "date": test_date, "imerg_rainfall_mm": 12.0}
+    ])
+    mock_data.to_csv(mock_imerg_csv, index=False)
+
+    temp_out = str(tmp_path / "test_features.parquet")
+    df = assemble_feature_table(sample_dates=True, output_path=temp_out, imerg_path=str(mock_imerg_csv))
+
+    assert "ground_truth_source" in df.columns, "ground_truth_source column must be present in feature table"
+    
+    # Check matching row receives 'imerg' and exact rainfall
+    matching = df[(df["panchayat_id"].astype(str) == test_gp) & (pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d") == test_date)]
+    if len(matching) > 0:
+        assert (matching["ground_truth_source"] == "imerg").all()
+        assert (matching["ground_truth_rainfall"] == 55.5).all()
+
+    # Check non-matching row receives 'synthetic_orographic'
+    non_matching = df[df["panchayat_id"].astype(str) != test_gp]
+    assert (non_matching["ground_truth_source"] == "synthetic_orographic").all()

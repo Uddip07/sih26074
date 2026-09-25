@@ -13,7 +13,7 @@ if BASE_DIR not in sys.path:
 import numpy as np
 import pandas as pd
 import geopandas as gpd
-from typing import Tuple, Dict, Any
+from typing import Tuple, Dict, Any, Optional
 
 INTERIM_DIR = os.path.join(BASE_DIR, "data", "interim")
 PROCESSED_DIR = os.path.join(BASE_DIR, "data", "processed", "train_test_splits")
@@ -64,7 +64,8 @@ def load_static_covariates() -> pd.DataFrame:
 
 def assemble_feature_table(
     sample_dates: bool = False,
-    output_path: str = OUTPUT_MASTER
+    output_path: str = OUTPUT_MASTER,
+    imerg_path: Optional[str] = None
 ) -> pd.DataFrame:
     """
     Assemble the full master table combining static covariates, daily block forecasts,
@@ -104,6 +105,21 @@ def assemble_feature_table(
         how="inner"
     )
 
+    # Load IMERG satellite rainfall if available
+    imerg_csv_path = imerg_path or os.path.join(INTERIM_DIR, "panchayat_imerg.csv")
+    imerg_lookup: Dict[Tuple[str, str], float] = {}
+    if os.path.exists(imerg_csv_path):
+        try:
+            imerg_df = pd.read_csv(imerg_csv_path)
+            if {"gp_code", "date", "imerg_rainfall_mm"}.issubset(imerg_df.columns):
+                imerg_df["gp_code"] = imerg_df["gp_code"].astype(str)
+                imerg_df["date"] = pd.to_datetime(imerg_df["date"]).dt.strftime("%Y-%m-%d")
+                for _, im_row in imerg_df.iterrows():
+                    imerg_lookup[(str(im_row["gp_code"]), str(im_row["date"]))] = float(im_row["imerg_rainfall_mm"])
+                print(f"Loaded {len(imerg_lookup)} IMERG satellite observations for ground truth matching.")
+        except Exception as e:
+            print(f"[WARN] Failed to load IMERG observations: {e}")
+
     # Cross join / expand: for each date and each block, expand to all sub-panchayats in that block
     expanded_rows = []
     
@@ -115,6 +131,7 @@ def assemble_feature_table(
 
     for d in dates:
         dt = pd.to_datetime(d)
+        dt_str = dt.strftime("%Y-%m-%d")
         d_sub = block_timeseries[block_timeseries["date"] == d]
         day_of_year = dt.dayofyear
         is_monsoon = bool(dt.month in [6, 7, 8, 9])
@@ -135,19 +152,25 @@ def assemble_feature_table(
                 p_elev = p_row["elevation_mean"]
                 p_dist_coast = p_row["dist_to_coast_km"]
                 p_forest = p_row["landuse_forest_pct"]
+                p_gp_code = str(p_row["gp_code"])
 
-                # Physical Microclimate Adjustment:
-                # Orographic rain enhancement in Western Ghats:
-                # Rain increases with elevation (+3.5% per 100m in monsoon) and proximity to coast (-1.2% per 10km inland)
                 elev_diff = p_elev - b_mean_elev
-                if is_monsoon:
-                    orographic_factor = 1.0 + (elev_diff / 100.0) * 0.042 - (p_dist_coast - 80.0) * 0.002
-                    orographic_factor = np.clip(orographic_factor, 0.45, 1.85)
-                else:
-                    orographic_factor = 1.0 + (elev_diff / 100.0) * 0.015
 
-                # Actual panchayat microclimate ground truth value
-                actual_p_rain = max(0.0, round(float(b_row["ground_truth_rainfall"] * orographic_factor), 2))
+                # Physical Microclimate Adjustment / IMERG Ground Truth:
+                # If IMERG satellite rainfall is available for (gp_code, date), use it directly.
+                # Otherwise fall back to the synthetic orographic adjustment formula.
+                if (p_gp_code, dt_str) in imerg_lookup:
+                    actual_p_rain = round(float(imerg_lookup[(p_gp_code, dt_str)]), 2)
+                    ground_truth_source = "imerg"
+                else:
+                    if is_monsoon:
+                        orographic_factor = 1.0 + (elev_diff / 100.0) * 0.042 - (p_dist_coast - 80.0) * 0.002
+                        orographic_factor = np.clip(orographic_factor, 0.45, 1.85)
+                    else:
+                        orographic_factor = 1.0 + (elev_diff / 100.0) * 0.015
+
+                    actual_p_rain = max(0.0, round(float(b_row["ground_truth_rainfall"] * orographic_factor), 2))
+                    ground_truth_source = "synthetic_orographic"
                 
                 # Temperature lapse rate: -0.65°C per 100m elevation
                 lapse_tmax = round(float(b_row["ground_truth_tmax"] - (elev_diff / 100.0) * 0.65), 1)
@@ -184,6 +207,8 @@ def assemble_feature_table(
                     "block_forecast_tmin": b_fc_tmin,
                     "block_forecast_rh": b_fc_rh,
                     "block_forecast_wind_kmh": b_fc_wind,
+                    # Ground truth source flag
+                    "ground_truth_source": ground_truth_source,
                     # Panchayat-level true observation
                     "ground_truth_rainfall": actual_p_rain,
                     "ground_truth_tmax": lapse_tmax,
@@ -205,18 +230,19 @@ def assemble_feature_table(
     print(f"Master feature table assembled: {len(df)} rows across {df['panchayat_id'].nunique()} panchayats saved to {output_path}")
 
     # Generate Train and Test Splits (GroupKFold by panchayat_id to prevent spatial leakage)
-    unique_panchayats = df["panchayat_id"].unique()
-    np.random.seed(42)
-    shuffled_panchayats = np.random.permutation(unique_panchayats)
-    split_idx = int(len(shuffled_panchayats) * 0.8)
-    train_panchayats = set(shuffled_panchayats[:split_idx])
+    if output_path == OUTPUT_MASTER:
+        unique_panchayats = df["panchayat_id"].unique()
+        np.random.seed(42)
+        shuffled_panchayats = np.random.permutation(unique_panchayats)
+        split_idx = int(len(shuffled_panchayats) * 0.8)
+        train_panchayats = set(shuffled_panchayats[:split_idx])
 
-    train_df = df[df["panchayat_id"].isin(train_panchayats)]
-    test_df = df[~df["panchayat_id"].isin(train_panchayats)]
+        train_df = df[df["panchayat_id"].isin(train_panchayats)]
+        test_df = df[~df["panchayat_id"].isin(train_panchayats)]
 
-    train_df.to_parquet(os.path.join(PROCESSED_DIR, "train.parquet"), index=False)
-    test_df.to_parquet(os.path.join(PROCESSED_DIR, "test.parquet"), index=False)
-    print(f"Train/Test split generated: {len(train_df)} train rows ({len(train_panchayats)} panchayats), {len(test_df)} test rows ({len(unique_panchayats) - len(train_panchayats)} panchayats)")
+        train_df.to_parquet(os.path.join(PROCESSED_DIR, "train.parquet"), index=False)
+        test_df.to_parquet(os.path.join(PROCESSED_DIR, "test.parquet"), index=False)
+        print(f"Train/Test split generated: {len(train_df)} train rows ({len(train_panchayats)} panchayats), {len(test_df)} test rows ({len(unique_panchayats) - len(train_panchayats)} panchayats)")
 
     return df
 

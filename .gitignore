@@ -50,6 +50,14 @@ open-meteo-*.csv
 data/raw/boundaries/LGD_Blocks.parquet
 data/raw/boundaries/LGD_Districts.parquet
 data/raw/forecast/*.grd
+data/raw/satellite/
+*.nc4
+*.nc
+
+# Credentials
+.netrc
+_netrc
+~/.netrc
 
 # OS generated files
 .DS_Store

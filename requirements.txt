@@ -11,6 +11,7 @@ scikit-learn>=1.4.0
 xgboost>=2.0.0
 lightgbm>=4.3.0
 xarray>=2024.0.0
+netCDF4>=1.6.0
 rdata>=1.0.0
 requests>=2.31.0
 pydantic>=2.6.0
