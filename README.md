@@ -17,6 +17,9 @@ This repository delivers an operational, end-to-end meteorological downscaling p
 The technical implementation is strictly structured around the architectural blueprint defined in [`block-to-panchayat-downscaling-spec.md`](file:///c:/Users/admin/OneDrive/Desktop/sih074/block-to-panchayat-downscaling-spec.md) and integrates official national geospatial and meteorological data structures:
 - **Administrative Boundaries:** Sourced directly from [urbanmorph/geodata](https://github.com/urbanmorph/geodata) (`LGD_Blocks.parquet` and `LGD_panchayats.parquet` with official Local Government Directory codes).
 - **Meteorological Data Engine:** Python port of the India Meteorological Department (IMD) binary `.grd` data standard reverse-engineered from [Subhradip25/imdR](https://github.com/Subhradip25/imdR).
+- **Satellite Precipitation Ground Truth:** Real NASA GPM IMERG Final Daily V07B (0.1° resolution) NetCDF4 files retrieved from GES DISC with URS authentication, with an intentional physical orographic fallback for un-gauged panchayats without local AWS stations.
+- **Topography & Elevation (DEM):** Real SRTMGL1 30m Digital Elevation Models retrieved via the OpenTopography REST API, with planar terrain slope calculation in UTM Zone 43N (`EPSG:32643`).
+- **Land Use & Land Cover (LULC):** Real ESA WorldCover 10m 2021 Cloud-Optimized GeoTIFFs streamed directly from AWS S3, categorized into Cropland, Forest, Water, and Built-up percentages via categorical zonal statistics.
 
 ---
 

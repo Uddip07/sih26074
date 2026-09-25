@@ -103,3 +103,42 @@ def test_ground_truth_source_population(tmp_path):
     # Check non-matching row receives 'synthetic_orographic'
     non_matching = df[df["panchayat_id"].astype(str) != test_gp]
     assert (non_matching["ground_truth_source"] == "synthetic_orographic").all()
+
+
+def test_dem_elevation_ranges():
+    """
+    Spot-check that panchayat DEM statistics match the real physical topography of Pune:
+    Deccan plains ~490-620m, Western Ghats crest reaching >950-1000m+.
+    """
+    dem_path = os.path.join(BASE_DIR, "data", "interim", "panchayat_dem_stats.csv")
+    assert os.path.exists(dem_path), "panchayat_dem_stats.csv must exist"
+    dem_df = pd.read_csv(dem_path)
+    assert len(dem_df) >= 1000
+
+    assert {"gp_code", "elevation_mean", "elevation_std", "slope_mean"}.issubset(dem_df.columns)
+    
+    # Minimum elevation across Pune eastern plains (Indapur / Ujani dam) is ~480-500m
+    assert dem_df["elevation_mean"].min() >= 470.0, "Plains elevation should not be below 470m"
+    # Maximum elevation along Western Ghats ridge (Torna / Rajgad / Bhimashankar) is >1000m
+    assert dem_df["elevation_mean"].max() >= 950.0, "Crest elevation should exceed 950m"
+    # Terrain slopes must be positive
+    assert (dem_df["slope_mean"] > 0.0).all()
+
+
+def test_lulc_fractions_sum_and_bounds():
+    """
+    Confirm real LULC percentage rows sum to 100% within tolerance,
+    and all fractions are within [0, 100].
+    """
+    lulc_path = os.path.join(BASE_DIR, "data", "interim", "panchayat_lulc.csv")
+    assert os.path.exists(lulc_path), "panchayat_lulc.csv must exist"
+    lulc_df = pd.read_csv(lulc_path)
+    assert len(lulc_df) >= 1000
+
+    cols = ["landuse_cropland_pct", "landuse_forest_pct", "landuse_water_pct", "landuse_builtup_pct"]
+    for c in cols:
+        assert (lulc_df[c] >= 0.0).all(), f"{c} contains negative values"
+        assert (lulc_df[c] <= 100.0).all(), f"{c} exceeds 100%"
+
+    lulc_sum = lulc_df[cols].sum(axis=1)
+    assert np.allclose(lulc_sum, 100.0, atol=0.2), "All LULC percentage rows must sum to ~100%"
