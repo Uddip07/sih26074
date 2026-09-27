@@ -1,0 +1,261 @@
+{
+  "panchayats": {
+    "path": "data\\pune\\interim\\panchayats.parquet",
+    "source": "LGD via urbanmorph/geodata",
+    "licence": "Government of India Open Data (GODL)",
+    "produced_by": "src.ingest.boundaries",
+    "generated_utc": "2026-09-26T08:44:06+00:00",
+    "bytes": 9297966,
+    "sha256": "a9743c6be041816db1b6982deb79b65c421e5dbeea6e723d79f73b6dd3e534d8"
+  },
+  "blocks": {
+    "path": "data\\pune\\interim\\blocks.parquet",
+    "source": "LGD via urbanmorph/geodata",
+    "licence": "Government of India Open Data (GODL)",
+    "produced_by": "src.ingest.boundaries",
+    "generated_utc": "2026-09-26T08:44:06+00:00",
+    "bytes": 1114062,
+    "sha256": "903c0c1537134d1b9820de9d44bcb3fa71590dca02330820bf849906fa8849fd"
+  },
+  "non_gp_areas": {
+    "path": "data\\pune\\interim\\non_gp_areas.parquet",
+    "source": "LGD via urbanmorph/geodata",
+    "licence": "Government of India Open Data (GODL)",
+    "produced_by": "src.ingest.boundaries",
+    "generated_utc": "2026-09-26T08:44:06+00:00",
+    "bytes": 1197885,
+    "sha256": "2b98a48c0853304e2fd115c3ceed1a1396ecb9ad76f45f59643f66294274fe36"
+  },
+  "chirps_final_cube": {
+    "path": "data\\pune\\raw\\chirps\\chirps_final_2024-06-01_2026-08-31.nc",
+    "source": "CHIRPS v2.0 daily p05 (Funk et al. 2015), Climate Hazards Center UCSB",
+    "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
+    "produced_by": "src.ingest.chirps",
+    "generated_utc": "2026-09-26T12:02:55+00:00",
+    "bytes": 980132,
+    "sha256": "4ba5b1af16c5848970af10199ca0e1c597a5d823873afd2c7828422e4c2b22ee",
+    "days": 822,
+    "missing_days": 0,
+    "shape": [
+      822,
+      34,
+      42
+    ]
+  },
+  "chirps_prelim_cube": {
+    "path": "data\\pune\\raw\\chirps\\chirps_prelim_2026-09-01_2026-09-25.nc",
+    "source": "CHIRPS v2.0 daily p05 (Funk et al. 2015), Climate Hazards Center UCSB",
+    "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
+    "produced_by": "src.ingest.chirps",
+    "generated_utc": "2026-09-27T09:34:33+00:00",
+    "bytes": 16904,
+    "sha256": "6e96778feeaeb598f0589a01c01420802d9121163cb5ecfa14e14b2e76660ae9",
+    "days": 25,
+    "missing_days": 5,
+    "shape": [
+      25,
+      34,
+      42
+    ]
+  },
+  "chpclim_monthly": {
+    "path": "data\\pune\\raw\\chirps\\chpclim_monthly.nc",
+    "source": "CHPclim v2 monthly climatology, CHC UCSB",
+    "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
+    "produced_by": "src.ingest.chirps",
+    "generated_utc": "2026-09-26T08:51:26+00:00",
+    "bytes": 78336,
+    "sha256": "a1a9e30958d41210a8b97ebcc438a769d2722bfc18a72d577aa7b688ed768c76"
+  },
+  "gp_rain_obs": {
+    "path": "data\\pune\\interim\\gp_rain_obs.parquet",
+    "source": "CHIRPS v2.0 daily p05 (Funk et al. 2015), Climate Hazards Center UCSB",
+    "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
+    "produced_by": "src.ingest.chirps",
+    "generated_utc": "2026-09-27T09:34:38+00:00",
+    "bytes": 2492454,
+    "sha256": "da13dc49a9069d757ee8f8476fd84333767c3c6d57ec374b12efef59ea3d2cd1"
+  },
+  "gp_climatology": {
+    "path": "data\\pune\\interim\\gp_climatology.parquet",
+    "source": "CHIRPS v2.0 daily p05 (Funk et al. 2015), Climate Hazards Center UCSB",
+    "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
+    "produced_by": "src.ingest.chirps",
+    "generated_utc": "2026-09-27T09:34:38+00:00",
+    "bytes": 190402,
+    "sha256": "9ad50ce17c745fbf7c3eda1e8339478ec932298e582db5d51902b890e86f8ab2"
+  },
+  "imd_rain_025": {
+    "path": "data\\pune\\interim\\imd_cells_rain.parquet",
+    "source": "IMD 0.25° gridded rainfall (Pai et al. 2014), imdpune.gov.in",
+    "licence": "IMD data policy - free for research/non-commercial use with acknowledgement",
+    "produced_by": "src.ingest.imd_gridded",
+    "generated_utc": "2026-09-27T09:40:01+00:00",
+    "bytes": 138837,
+    "sha256": "f36533929549472613dfc95f4406a0ea7a86ccdd3bdd9573edcc32c0e3aeff2c",
+    "years": [
+      2024,
+      2025
+    ],
+    "cell_days": 57321
+  },
+  "worldcover_clip": {
+    "path": "data\\pune\\raw\\lulc\\worldcover_2021_clip.tif",
+    "source": "ESA WorldCover 10 m 2021 v200 (Zanaga et al. 2022)",
+    "licence": "CC-BY 4.0 (c) ESA WorldCover project 2021",
+    "produced_by": "src.ingest.landcover",
+    "generated_utc": "2026-09-26T08:57:14+00:00",
+    "bytes": 46193829,
+    "sha256": "1c63987670e452813684b1535d33cf4a006e2283c342d5439a7f62e6a94628d1",
+    "tiles": [
+      "N15E072",
+      "N15E075",
+      "N18E072",
+      "N18E075"
+    ]
+  },
+  "gp_landcover": {
+    "path": "data\\pune\\interim\\gp_landcover.parquet",
+    "source": "ESA WorldCover 10 m 2021 v200 (Zanaga et al. 2022)",
+    "licence": "CC-BY 4.0 (c) ESA WorldCover project 2021",
+    "produced_by": "src.ingest.landcover",
+    "generated_utc": "2026-09-26T08:57:27+00:00",
+    "bytes": 96438,
+    "sha256": "d2a6324f0fe468fea010519d18329b77e089f220427689f5d4188b7c8df30f49"
+  },
+  "dem_utm30": {
+    "path": "data\\pune\\raw\\dem\\dem_utm30.tif",
+    "source": "Copernicus DEM GLO-30 (ESA / Airbus), AWS Open Data Registry",
+    "licence": "Copernicus DEM licence: free, worldwide, with attribution ((c) DLR e.V. 2010-2014 and (c) Airbus 2014-2018, provided under COPERNICUS by the EU and ESA)",
+    "produced_by": "src.ingest.terrain",
+    "generated_utc": "2026-09-26T08:57:58+00:00",
+    "bytes": 108569950,
+    "sha256": "2b734b7648e7a9c8e37d123870e41a92878b39d4bb1e71d29ed8a6d621f0e4b6",
+    "tiles": [
+      "Copernicus_DSM_COG_10_N17_00_E073_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N17_00_E074_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N17_00_E075_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N18_00_E073_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N18_00_E074_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N18_00_E075_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N19_00_E073_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N19_00_E074_00_DEM.tif",
+      "Copernicus_DSM_COG_10_N19_00_E075_00_DEM.tif"
+    ],
+    "resolution_m": 30.0
+  },
+  "gp_terrain": {
+    "path": "data\\pune\\interim\\gp_terrain.parquet",
+    "source": "Copernicus DEM GLO-30 (ESA / Airbus), AWS Open Data Registry",
+    "licence": "Copernicus DEM licence: free, worldwide, with attribution ((c) DLR e.V. 2010-2014 and (c) Airbus 2014-2018, provided under COPERNICUS by the EU and ESA)",
+    "produced_by": "src.ingest.terrain",
+    "generated_utc": "2026-09-26T08:58:32+00:00",
+    "bytes": 146340,
+    "sha256": "be174592826279370f75373f90fefcade6f7549e9bba12e151a1f334f2f8191f"
+  },
+  "gp_ndvi": {
+    "path": "data\\pune\\interim\\gp_ndvi.parquet",
+    "source": "MODIS MOD13Q1/MYD13Q1 v6.1 (Didan 2021) via Microsoft Planetary Computer",
+    "licence": "NASA EOSDIS data - no restrictions on reuse (cite LP DAAC)",
+    "produced_by": "src.ingest.ndvi",
+    "generated_utc": "2026-09-26T09:40:15+00:00",
+    "bytes": 666997,
+    "sha256": "42cec7dd1ca03b529144f4fdbbaba49f33d8efa9907e91158276de170c674d41",
+    "composites": 73,
+    "latency_days": 8
+  },
+  "gp_soil": {
+    "path": "data\\pune\\interim\\gp_soil.parquet",
+    "source": "ISRIC SoilGrids 2.0 (Poggio et al. 2021), 250 m",
+    "licence": "CC-BY 4.0 ISRIC - World Soil Information",
+    "produced_by": "src.ingest.soil",
+    "generated_utc": "2026-09-26T09:40:34+00:00",
+    "bytes": 42969,
+    "sha256": "c78a27ae448a68865b4d6454ec726c7a9d29a6f746b92c23bd3bcfd48cd455a2",
+    "pedotransfer": "Saxton & Rawls 2006",
+    "nearest_filled": 0
+  },
+  "gp_hydro": {
+    "path": "data\\pune\\interim\\gp_hydro.parquet",
+    "source": "Natural Earth 10m coastline; HydroRIVERS v1.0 (Strahler order >= 2); ESA WorldCover water",
+    "licence": "Public domain / HydroSHEDS licence (free, attribution) or ODbL / CC-BY 4.0",
+    "produced_by": "src.ingest.hydro",
+    "generated_utc": "2026-09-26T09:50:28+00:00",
+    "bytes": 40997,
+    "sha256": "95e26caed3a31db604ce9c112b9c3a5464ddcee3e1594f1fbfca972c5c7eecd5",
+    "osm_river_ways": 3195,
+    "reservoirs_ge_1km2": 64
+  },
+  "gp_met_obs": {
+    "path": "data\\pune\\interim\\gp_met_obs.parquet",
+    "source": "ERA5-Land 0.1° (T, RH) + ERA5 0.25° (wind, precipitation, ET0, radiation) via Open-Meteo",
+    "licence": "Copernicus licence (free use with attribution); Open-Meteo CC-BY 4.0",
+    "produced_by": "src.ingest.era5land",
+    "generated_utc": "2026-09-27T09:34:49+00:00",
+    "bytes": 28220617,
+    "sha256": "8af9fb5aeae879d1cf28a234d79379180ec9e5aee8910fc88f240a109f9fcf1e",
+    "nodes": 178
+  },
+  "block_met_obs": {
+    "path": "data\\pune\\interim\\block_met_obs.parquet",
+    "source": "ERA5-Land 0.1° (T, RH) + ERA5 0.25° (wind, precipitation, ET0, radiation) via Open-Meteo",
+    "licence": "Copernicus licence (free use with attribution); Open-Meteo CC-BY 4.0",
+    "produced_by": "src.ingest.era5land",
+    "generated_utc": "2026-09-27T09:34:49+00:00",
+    "bytes": 582770,
+    "sha256": "76d38b5cc15d8b0a13b144a2bd52ca5ce932eacae55fc86388a2171b83e170b9",
+    "nodes": 178
+  },
+  "block_forecasts": {
+    "path": "data\\pune\\interim\\block_forecasts.parquet",
+    "source": "Open-Meteo Previous Runs API, model=ecmwf_ifs025 (ECMWF IFS open data 0.25°)",
+    "licence": "CC-BY 4.0 (Open-Meteo); ECMWF open data licence (CC-BY 4.0)",
+    "produced_by": "src.ingest.nwp_forecast",
+    "generated_utc": "2026-09-27T09:40:19+00:00",
+    "bytes": 1011853,
+    "sha256": "336585bee3015ecbce00b8b5769147d86e69a7216837ce1ec37aa50c57c5cef7",
+    "rows": 57540,
+    "grid_nodes": 37,
+    "period": [
+      "2024-06-01",
+      "2026-08-31"
+    ]
+  },
+  "dataset": {
+    "path": "data\\pune\\processed\\dataset.parquet",
+    "source": "derived (see component datasets)",
+    "licence": "inherits component licences",
+    "produced_by": "src.features.dataset",
+    "generated_utc": "2026-09-27T09:40:39+00:00",
+    "bytes": 97253511,
+    "sha256": "e139be9f3b22900c2849f4e8596e50d9d93d95dea6c9e347eb507df8d15c3b3b",
+    "rows": 5544390,
+    "gps": 1349,
+    "valid_dates": 822,
+    "leads": [
+      1,
+      2,
+      3,
+      4,
+      5
+    ],
+    "target_coverage_pct": {
+      "rain_obs": 100.0,
+      "tmax_obs": 100.0,
+      "tmin_obs": 100.0,
+      "rh_obs": 100.0,
+      "wind_obs": 100.0
+    },
+    "forecast_coverage_pct": {
+      "fc_rain": 99.85,
+      "fc_tmax": 100.0,
+      "fc_tmin": 100.0,
+      "fc_rh": 99.88,
+      "fc_wind": 100.0
+    },
+    "period": [
+      "2024-06-01",
+      "2026-08-31"
+    ]
+  }
+}

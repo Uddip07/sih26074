@@ -24,3 +24,7 @@
 *.gif binary
 *.ico binary
 *.pdf binary
+*.ttf binary
+*.joblib binary
+*.svg text eol=lf
+*.webmanifest text eol=lf

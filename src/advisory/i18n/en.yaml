@@ -1,0 +1,111 @@
+lang_name: English
+bulletin_title: "Gram Panchayat Agromet Advisory"
+subtitle: "Panchayat-level 5-day weather forecast and farm advisory (downscaled from the block forecast)"
+district: District
+block: Block
+gp: Gram Panchayat
+issued: Issued
+valid: Valid
+weather_forecast: "Weather forecast"
+col_date: Date
+col_rain: "Rain (mm)"
+col_rain_prob: "Chance of rain"
+col_tmax: "Max temp (°C)"
+col_tmin: "Min temp (°C)"
+col_rh: "Humidity (%)"
+col_wind: "Wind (km/h)"
+col_range: "likely range"
+overall_status: "Warning level"
+weather_summary: "Weather summary"
+general_advisory: "General advisory"
+crop_advisory: "Crop advisories"
+disease_advisory: "Pest & disease alerts"
+footer: "Downscaled from the ECMWF block forecast using terrain, land cover and rainfall climatology. Issued by the District Agromet Unit (DAMU). Verify with the latest IMD bulletin."
+reviewed_by: "Reviewed by"
+not_reviewed: "Auto-generated, not yet reviewed by an agromet officer"
+
+summary_dry: "Mainly dry weather is expected over the next 5 days (total {total} mm)."
+summary_light: "Light rain is likely on {n_days} of the next 5 days (total {total} mm)."
+summary_moderate: "Moderate rain is likely on {n_days} of the next 5 days (total {total} mm)."
+summary_heavy: "Heavy rain is possible; total rainfall over 5 days about {total} mm."
+summary_temp: "Maximum temperature {tmax_lo}-{tmax_hi} °C and minimum {tmin_lo}-{tmin_hi} °C."
+
+normal_title: "Normal weather"
+normal_text: "No adverse weather is expected. Continue normal farm operations."
+
+heavy_rain_title: "Heavy rainfall warning"
+heavy_rain_text: "About {rain} mm of rain is expected on {day} (chance of 64.5 mm or more: {prob}%)."
+heavy_rain_action: "Open drainage channels, postpone sowing, fertiliser application and spraying, and keep harvested produce and fodder under cover."
+waterlogging_title: "Waterlogging risk"
+waterlogging_text: "{rain3} mm is expected in 3 days on flat, clayey fields (slope {slope}°, clay {clay}%)."
+waterlogging_action: "Make ridges and furrows or open field drains to remove standing water within 24 hours; avoid entering wet fields with machinery."
+dry_spell_title: "Dry spell - irrigation advisory"
+dry_spell_text: "Only {rain3} mm of rain is expected in the next 3 days; crop water need is about {etc} mm."
+dry_spell_action: "Give protective irrigation of about {irr} mm, preferably by drip or sprinkler in the morning or evening; mulch to save soil moisture."
+sowing_ok_title: "Sowing window open"
+sowing_ok_text: "Soil moisture is sufficient: about {cum} mm of rain received and expected."
+sowing_ok_action: "Kharif sowing can be taken up; use treated seed and sow along the contour on slopes."
+sowing_wait_title: "Wait before sowing"
+sowing_wait_text: "Only about {cum} mm of rain so far; at least 65 mm is needed for safe sowing."
+sowing_wait_action: "Do not sow in dry soil; wait for adequate rain to avoid seed loss."
+spray_ok_title: "Spraying window"
+spray_ok_text: "Good days for pesticide / fungicide spraying: {days}."
+spray_ok_action: "Spray in calm morning hours; avoid spraying within 6 hours of expected rain."
+spray_no_title: "Postpone spraying"
+spray_no_text: "Rain or strong wind is expected on all of the next days."
+spray_no_action: "Postpone spraying and foliar fertiliser; chemicals will be washed off or drift."
+fert_avoid_title: "Postpone fertiliser top-dressing"
+fert_avoid_text: "{rain2} mm of rain is expected in the next 48 hours."
+fert_avoid_action: "Delay urea / top-dressing until the heavy rain passes to prevent washing away of nutrients."
+heat_title: "Heat stress"
+heat_text: "Maximum temperature up to {tmax} °C is expected on {day}."
+heat_action: "Irrigate in the evening, provide shade and drinking water to livestock, and avoid field work between 12 and 4 pm."
+cold_title: "Cold wave"
+cold_text: "Minimum temperature may fall to {tmin} °C on {day}."
+cold_action: "Give light irrigation in the evening, cover nurseries, and keep livestock sheltered at night."
+frost_title: "Ground frost risk"
+frost_text: "Minimum temperature may fall to {tmin} °C on {day}; low-lying valley fields are most at risk."
+frost_action: "Irrigate the evening before, cover seedlings, and create smoke on the windward side before dawn."
+thunder_title: "Thunderstorm and lightning"
+thunder_text: "Thunderstorms are possible on {day} (chance of 15.6 mm or more: {prob}%)."
+thunder_action: "Avoid open fields and trees during thunderstorms; keep livestock indoors; secure harvested produce."
+wind_title: "Strong wind"
+wind_text: "Winds up to {wind} km/h are expected on {day}."
+wind_action: "Provide staking to tall crops like sugarcane and banana; do not spray; secure polyhouse and shade nets."
+pest_fungal_title: "Pest and fungal risk"
+pest_fungal_text: "Hot and humid weather (up to {tmax} °C, humidity {rh}%) favours pests and fungal diseases."
+pest_fungal_action: "Scout crops regularly; take up need-based preventive spray on a dry, calm morning."
+harvest_ok_title: "Harvest window"
+harvest_ok_text: "{n} dry days are expected - good for harvesting and drying {crop}."
+harvest_ok_action: "Harvest mature crop and dry the produce well before storage."
+harvest_no_title: "Postpone harvest"
+harvest_no_text: "Rain is expected during the harvest stage of {crop}."
+harvest_no_action: "Postpone harvesting; move harvested produce to a covered, raised place."
+crop_stage_line: "{crop} - {stage}"
+
+disease_title: "{crop}: {disease} risk ({level})"
+risk_levels: {1: low, 2: moderate, 3: high}
+diseases:
+  grape_downy_mildew: {name: "Downy mildew", action: "Spray a protective fungicide (e.g. mancozeb or copper) before the rain; improve canopy ventilation."}
+  grape_powdery_mildew: {name: "Powdery mildew", action: "Spray wettable sulphur or a recommended systemic fungicide; remove affected leaves."}
+  onion_thrips: {name: "Thrips", action: "Monitor with blue sticky traps; spray recommended insecticide if more than 30 thrips per plant."}
+  onion_purple_blotch: {name: "Purple blotch", action: "Spray a recommended fungicide with sticker; ensure field drainage."}
+  pomegranate_bacterial_blight: {name: "Bacterial blight (oily spot)", action: "Remove and destroy infected fruits and twigs; spray a recommended bactericide + copper after rain."}
+  rice_blast: {name: "Blast", action: "Avoid excess nitrogen; spray a recommended fungicide at first symptoms."}
+  potato_late_blight: {name: "Late blight", action: "Spray a protective fungicide immediately; repeat after rain."}
+  soybean_rust: {name: "Rust", action: "Scout lower leaves; spray a recommended fungicide at first pustules."}
+  wheat_rust: {name: "Rust", action: "Grow resistant varieties; spray a recommended fungicide when rust appears."}
+
+day_names: {0: "Mon", 1: "Tue", 2: "Wed", 3: "Thu", 4: "Fri", 5: "Sat", 6: "Sun"}
+and: and
+
+sms_prefix: "{gp}: "
+sms_normal: "Weather normal next 5 days. Rain {total}mm. Continue farm work."
+sms_heavy_rain: "HEAVY RAIN {rain}mm on {day}. Drain fields, stop spraying & fertiliser."
+sms_dry_spell: "Dry 3 days, irrigate ~{irr}mm."
+sms_heat: "Heat {tmax}C {day}, irrigate evening."
+sms_cold: "Cold {tmin}C {day}, protect crops."
+sms_wind: "Wind {wind}km/h {day}, no spraying."
+sms_thunder: "Thunderstorm risk {day}, stay safe."
+sms_spray_ok: "Spray on {days}."
+sms_disease: "{crop} {disease} risk."

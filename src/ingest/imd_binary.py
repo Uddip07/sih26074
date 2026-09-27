@@ -4,13 +4,13 @@ Python native implementation of the imdR binary .grd grid format for India Meteo
 Supports 0.25° daily rainfall and 1.0° daily maximum/minimum temperature.
 """
 
-import struct
 import datetime
+from typing import Any
+
 import numpy as np
 import pandas as pd
-from typing import Dict, Any, Optional, Tuple
 
-IMD_META: Dict[str, Dict[str, Any]] = {
+IMD_META: dict[str, dict[str, Any]] = {
     "rain": {
         "ncols": 135,
         "nrows": 129,
@@ -53,7 +53,7 @@ def get_days_in_year(year: int) -> int:
     return 366 if is_leap_year(year) else 365
 
 
-def get_grid_coordinates(variable: str = "rain") -> Tuple[np.ndarray, np.ndarray]:
+def get_grid_coordinates(variable: str = "rain") -> tuple[np.ndarray, np.ndarray]:
     """
     Get 1D longitude and latitude coordinate arrays for the IMD grid.
     Returns: (longitudes, latitudes)
@@ -151,7 +151,7 @@ def extract_bbox_grid(
     min_lon: float,
     max_lon: float,
     variable: str = "rain"
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Crop the IMD grid array to a bounding box (e.g. for a district).
     Returns: (cropped_arr, sub_lats, sub_lons)

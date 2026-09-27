@@ -1,0 +1,121 @@
+# =============================================================================
+# Pune district crop calendar (feature F8)
+# Sources: Maharashtra Dept. of Agriculture district crop plans, MPKV Rahuri /
+# KVK Baramati & Narayangaon package of practices, FAO-56 Table 12 (Kc).
+# Dates are typical windows (MM-DD); windows may wrap across 31 Dec.
+# stage_type drives the generic rules: sowing | vegetative | flowering |
+#   fruit_development | maturity | harvest | rest
+# Officers can edit blocks, windows or add crops without touching code.
+# =============================================================================
+
+crops:
+  rice:
+    name: {en: Paddy (rice), mr: भात, hi: धान}
+    blocks: [MAVAL, MULSHI, VELHE, BHOR, AMBEGAON, JUNNAR, KHED, HAVELI]
+    diseases: [rice_blast]
+    stages:
+      - {name: {en: Nursery / sowing, mr: रोपवाटिका / पेरणी, hi: नर्सरी / बुवाई}, type: sowing, start: "06-10", end: "07-05", kc: 1.05}
+      - {name: {en: Transplanting / tillering, mr: पुनर्लागवड / फुटवे, hi: रोपाई / कल्ले}, type: vegetative, start: "07-06", end: "08-31", kc: 1.10}
+      - {name: {en: Panicle initiation / flowering, mr: लोंबी / फुलोरा, hi: बाली / फूल}, type: flowering, start: "09-01", end: "09-30", kc: 1.20}
+      - {name: {en: Grain filling, mr: दाणे भरणे, hi: दाना भरना}, type: fruit_development, start: "10-01", end: "10-25", kc: 1.05}
+      - {name: {en: Harvest, mr: कापणी, hi: कटाई}, type: harvest, start: "10-26", end: "11-20", kc: 0.90}
+  soybean:
+    name: {en: Soybean, mr: सोयाबीन, hi: सोयाबीन}
+    blocks: [KHED, JUNNAR, AMBEGAON, HAVELI, SHIRUR, BHOR, PURANDAR]
+    diseases: [soybean_rust]
+    stages:
+      - {name: {en: Sowing / emergence, mr: पेरणी / उगवण, hi: बुवाई / अंकुरण}, type: sowing, start: "06-15", end: "07-10", kc: 0.40}
+      - {name: {en: Vegetative, mr: शाकीय वाढ, hi: वानस्पतिक वृद्धि}, type: vegetative, start: "07-11", end: "08-20", kc: 0.80}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "08-21", end: "09-15", kc: 1.15}
+      - {name: {en: Pod development, mr: शेंगा भरणे, hi: फली भरना}, type: fruit_development, start: "09-16", end: "10-05", kc: 1.10}
+      - {name: {en: Maturity / harvest, mr: परिपक्वता / काढणी, hi: परिपक्वता / कटाई}, type: harvest, start: "10-06", end: "10-31", kc: 0.50}
+  bajra:
+    name: {en: Pearl millet (bajra), mr: बाजरी, hi: बाजरा}
+    blocks: [BARAMATI, INDAPUR, DAUND, SHIRUR, PURANDAR]
+    diseases: []
+    stages:
+      - {name: {en: Sowing, mr: पेरणी, hi: बुवाई}, type: sowing, start: "06-20", end: "07-15", kc: 0.35}
+      - {name: {en: Vegetative, mr: शाकीय वाढ, hi: वानस्पतिक वृद्धि}, type: vegetative, start: "07-16", end: "08-20", kc: 0.70}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "08-21", end: "09-10", kc: 1.00}
+      - {name: {en: Grain filling, mr: दाणे भरणे, hi: दाना भरना}, type: fruit_development, start: "09-11", end: "09-30", kc: 0.80}
+      - {name: {en: Harvest, mr: काढणी, hi: कटाई}, type: harvest, start: "10-01", end: "10-20", kc: 0.30}
+  rabi_jowar:
+    name: {en: Rabi sorghum (jowar), mr: रब्बी ज्वारी, hi: रबी ज्वार}
+    blocks: [BARAMATI, INDAPUR, DAUND, PURANDAR, SHIRUR]
+    diseases: []
+    stages:
+      - {name: {en: Sowing, mr: पेरणी, hi: बुवाई}, type: sowing, start: "09-20", end: "10-20", kc: 0.30}
+      - {name: {en: Vegetative, mr: शाकीय वाढ, hi: वानस्पतिक वृद्धि}, type: vegetative, start: "10-21", end: "12-10", kc: 0.75}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "12-11", end: "01-10", kc: 1.00}
+      - {name: {en: Grain filling, mr: दाणे भरणे, hi: दाना भरना}, type: fruit_development, start: "01-11", end: "02-10", kc: 0.80}
+      - {name: {en: Harvest, mr: काढणी, hi: कटाई}, type: harvest, start: "02-11", end: "03-10", kc: 0.55}
+  wheat:
+    name: {en: Wheat, mr: गहू, hi: गेहूँ}
+    blocks: [JUNNAR, KHED, AMBEGAON, SHIRUR, HAVELI]
+    diseases: [wheat_rust]
+    stages:
+      - {name: {en: Sowing, mr: पेरणी, hi: बुवाई}, type: sowing, start: "11-01", end: "11-30", kc: 0.40}
+      - {name: {en: Crown root / tillering, mr: मुकुटमुळे / फुटवे, hi: शिखर जड़ / कल्ले}, type: vegetative, start: "12-01", end: "01-15", kc: 0.80}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "01-16", end: "02-10", kc: 1.15}
+      - {name: {en: Grain filling, mr: दाणे भरणे, hi: दाना भरना}, type: fruit_development, start: "02-11", end: "03-10", kc: 1.00}
+      - {name: {en: Harvest, mr: कापणी, hi: कटाई}, type: harvest, start: "03-11", end: "04-05", kc: 0.35}
+  gram:
+    name: {en: Chickpea (gram), mr: हरभरा, hi: चना}
+    blocks: [BARAMATI, INDAPUR, DAUND, SHIRUR, PURANDAR, JUNNAR, KHED]
+    diseases: []
+    stages:
+      - {name: {en: Sowing, mr: पेरणी, hi: बुवाई}, type: sowing, start: "10-15", end: "11-15", kc: 0.40}
+      - {name: {en: Vegetative / branching, mr: शाकीय वाढ / फांद्या, hi: वानस्पतिक / शाखाएँ}, type: vegetative, start: "11-16", end: "12-20", kc: 0.75}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "12-21", end: "01-20", kc: 1.00}
+      - {name: {en: Pod filling, mr: घाटे भरणे, hi: फली भरना}, type: fruit_development, start: "01-21", end: "02-15", kc: 0.90}
+      - {name: {en: Harvest, mr: काढणी, hi: कटाई}, type: harvest, start: "02-16", end: "03-10", kc: 0.35}
+  onion:
+    name: {en: Onion, mr: कांदा, hi: प्याज}
+    blocks: [JUNNAR, KHED, AMBEGAON, SHIRUR, BARAMATI, PURANDAR, INDAPUR]
+    diseases: [onion_thrips, onion_purple_blotch]
+    stages:
+      - {name: {en: Kharif transplanting, mr: खरीप पुनर्लागवड, hi: खरीफ रोपाई}, type: sowing, start: "07-01", end: "07-31", kc: 0.70}
+      - {name: {en: Kharif vegetative, mr: खरीप शाकीय वाढ, hi: खरीफ वानस्पतिक}, type: vegetative, start: "08-01", end: "09-10", kc: 0.85}
+      - {name: {en: Kharif bulb development, mr: खरीप कांदा पोसणे, hi: खरीफ कंद विकास}, type: fruit_development, start: "09-11", end: "10-15", kc: 1.05}
+      - {name: {en: Kharif harvest, mr: खरीप काढणी, hi: खरीफ खुदाई}, type: harvest, start: "10-16", end: "11-14", kc: 0.75}
+      - {name: {en: Rabi transplanting, mr: रब्बी पुनर्लागवड, hi: रबी रोपाई}, type: sowing, start: "11-15", end: "12-31", kc: 0.70}
+      - {name: {en: Rabi vegetative, mr: रब्बी शाकीय वाढ, hi: रबी वानस्पतिक}, type: vegetative, start: "01-01", end: "02-15", kc: 0.85}
+      - {name: {en: Rabi bulb development, mr: रब्बी कांदा पोसणे, hi: रबी कंद विकास}, type: fruit_development, start: "02-16", end: "03-31", kc: 1.05}
+      - {name: {en: Rabi harvest / curing, mr: रब्बी काढणी / सुकवणी, hi: रबी खुदाई / सुखाना}, type: harvest, start: "04-01", end: "04-30", kc: 0.75}
+  potato:
+    name: {en: Potato, mr: बटाटा, hi: आलू}
+    blocks: [KHED, AMBEGAON, JUNNAR]
+    diseases: [potato_late_blight]
+    stages:
+      - {name: {en: Planting, mr: लागवड, hi: रोपण}, type: sowing, start: "06-15", end: "07-10", kc: 0.50}
+      - {name: {en: Vegetative, mr: शाकीय वाढ, hi: वानस्पतिक वृद्धि}, type: vegetative, start: "07-11", end: "08-15", kc: 0.90}
+      - {name: {en: Tuber bulking, mr: बटाटे पोसणे, hi: कंद विकास}, type: fruit_development, start: "08-16", end: "09-25", kc: 1.15}
+      - {name: {en: Harvest, mr: काढणी, hi: खुदाई}, type: harvest, start: "09-26", end: "10-20", kc: 0.75}
+  sugarcane:
+    name: {en: Sugarcane, mr: ऊस, hi: गन्ना}
+    blocks: [BARAMATI, INDAPUR, DAUND, SHIRUR, HAVELI, PURANDAR, JUNNAR]
+    diseases: []
+    stages:
+      - {name: {en: Tillering, mr: फुटवे, hi: कल्ले}, type: vegetative, start: "02-01", end: "05-31", kc: 0.80}
+      - {name: {en: Grand growth, mr: जोमदार वाढ, hi: तीव्र वृद्धि}, type: vegetative, start: "06-01", end: "10-31", kc: 1.25}
+      - {name: {en: Maturity / crushing, mr: परिपक्वता / गाळप, hi: परिपक्वता / पेराई}, type: harvest, start: "11-01", end: "01-31", kc: 0.75}
+  grapes:
+    name: {en: Grapes, mr: द्राक्ष, hi: अंगूर}
+    blocks: [JUNNAR, BARAMATI, INDAPUR, PURANDAR, HAVELI]
+    diseases: [grape_downy_mildew, grape_powdery_mildew]
+    stages:
+      - {name: {en: Foundation (April) pruning, mr: खरड छाटणी, hi: आधार छंटाई}, type: rest, start: "04-01", end: "04-30", kc: 0.30}
+      - {name: {en: Cane development, mr: काडी परिपक्वता, hi: बेंत विकास}, type: vegetative, start: "05-01", end: "09-30", kc: 0.70}
+      - {name: {en: Fruit (October) pruning, mr: फळ छाटणी, hi: फल छंटाई}, type: vegetative, start: "10-01", end: "10-20", kc: 0.45}
+      - {name: {en: Flowering / fruit set, mr: फुलोरा / मणी सेटिंग, hi: फूल / फल बनना}, type: flowering, start: "10-21", end: "11-30", kc: 0.80}
+      - {name: {en: Berry development, mr: मणी पोसणे, hi: दाना विकास}, type: fruit_development, start: "12-01", end: "02-15", kc: 0.85}
+      - {name: {en: Harvest, mr: काढणी, hi: तुड़ाई}, type: harvest, start: "02-16", end: "03-31", kc: 0.45}
+  pomegranate:
+    name: {en: Pomegranate (mrig bahar), mr: डाळिंब (मृग बहार), hi: अनार (मृग बहार)}
+    blocks: [PURANDAR, BARAMATI, INDAPUR, DAUND, SHIRUR]
+    diseases: [pomegranate_bacterial_blight]
+    stages:
+      - {name: {en: Rest / bahar treatment, mr: विश्रांती / बहार धरणे, hi: विश्राम / बहार उपचार}, type: rest, start: "01-01", end: "05-31", kc: 0.40}
+      - {name: {en: Flowering, mr: फुलोरा, hi: फूल आना}, type: flowering, start: "06-01", end: "07-15", kc: 0.75}
+      - {name: {en: Fruit development, mr: फळ वाढ, hi: फल विकास}, type: fruit_development, start: "07-16", end: "10-31", kc: 0.90}
+      - {name: {en: Harvest, mr: काढणी, hi: तुड़ाई}, type: harvest, start: "11-01", end: "12-31", kc: 0.65}

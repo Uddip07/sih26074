@@ -1,0 +1,28 @@
+{
+  "description": "U-Net super-resolution of the block rain field (perfect prognosis), unseen GPs x test period",
+  "epochs_trained": 9,
+  "n": 65853,
+  "unet": {
+    "n": 65853,
+    "rmse": 4.673566322845649,
+    "mae": 1.1281348394730784,
+    "bias": -0.1906754388042523,
+    "r": 0.9327645704164215,
+    "skill_vs_block_copy": 0.0389367515324095
+  },
+  "xgboost": {
+    "n": 65853,
+    "rmse": 3.949461907748238,
+    "mae": 0.9964003103122006,
+    "bias": -0.042247595451112015,
+    "r": 0.9524362363824442,
+    "skill_vs_block_copy": 0.18784019984798095
+  },
+  "block_copy": {
+    "n": 65853,
+    "rmse": 4.862912332042269,
+    "mae": 1.18154440856379,
+    "bias": 0.08500038139917455,
+    "r": 0.9278863684464532
+  }
+}

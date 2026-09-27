@@ -1,0 +1,9 @@
+.venv
+.git
+data
+outputs
+scratch
+10m_physical
+10m_cultural
+**/__pycache__
+*.pyc

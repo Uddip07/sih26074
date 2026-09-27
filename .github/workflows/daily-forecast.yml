@@ -1,0 +1,16 @@
+# Operational daily run (F26). Needs the trained model + static tables available to the runner
+# (e.g. a self-hosted runner at the DAMU with the repository's data/ and outputs/ directories).
+name: Daily forecast
+on:
+  schedule:
+    - cron: "30 1 * * *"   # 07:00 IST, after the 00 UTC ECMWF run is available
+  workflow_dispatch:
+jobs:
+  forecast:
+    runs-on: [self-hosted]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          clean: false
+      - name: Live forecast, advisories, bulletins
+        run: python -m src.pipeline.run --only forecast verify --source live

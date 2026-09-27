@@ -1,0 +1,11 @@
+{
+  "name": "Gram-Vani",
+  "short_name": "Gram-Vani",
+  "description": "Gram Panchayat 5-day weather forecast and farm advisories (downscaled from block forecasts)",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFAF8",
+  "theme_color": "#003D6B",
+  "lang": "mr",
+  "icons": [{"src": "/static/img/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}]
+}

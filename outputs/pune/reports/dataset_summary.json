@@ -1,0 +1,30 @@
+{
+  "rows": 5544390,
+  "gps": 1349,
+  "valid_dates": 822,
+  "leads": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "target_coverage_pct": {
+    "rain_obs": 100.0,
+    "tmax_obs": 100.0,
+    "tmin_obs": 100.0,
+    "rh_obs": 100.0,
+    "wind_obs": 100.0
+  },
+  "forecast_coverage_pct": {
+    "fc_rain": 99.85,
+    "fc_tmax": 100.0,
+    "fc_tmin": 100.0,
+    "fc_rh": 99.88,
+    "fc_wind": 100.0
+  },
+  "period": [
+    "2024-06-01",
+    "2026-08-31"
+  ]
+}

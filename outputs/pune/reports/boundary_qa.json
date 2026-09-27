@@ -1,0 +1,40 @@
+{
+  "raw_polygons": 1545,
+  "non_gp_polygons": 155,
+  "non_gp_area_km2": 1350.93,
+  "multipart_gp_codes": 37,
+  "gram_panchayats": 1350,
+  "modelled_gram_panchayats": 1349,
+  "blocks": 14,
+  "gps_per_block": {
+    "AMBEGAON": 100,
+    "BARAMATI": 98,
+    "BHOR": 153,
+    "DAUND": 75,
+    "HAVELI": 85,
+    "INDAPUR": 110,
+    "JUNNAR": 140,
+    "KHED": 154,
+    "MAVAL": 102,
+    "MULSHI": 94,
+    "PUNE CITY": 1,
+    "PURANDAR": 85,
+    "SHIRUR": 85,
+    "VELHE": 68
+  },
+  "attribute_disagreements": 0,
+  "attribute_disagreement_examples": [],
+  "assigned_by_nearest": 0,
+  "gp_area_km2": {
+    "count": 1350.0,
+    "mean": 10.59,
+    "std": 8.124,
+    "min": 0.797,
+    "25%": 5.0,
+    "50%": 8.363,
+    "75%": 13.599,
+    "max": 75.998
+  },
+  "gp_plus_nongp_area_km2": 15647.0,
+  "block_area_km2": 15643.6
+}

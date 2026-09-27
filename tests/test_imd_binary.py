@@ -3,22 +3,17 @@ Test IMD Binary Grid Parser & Writer
 """
 
 import os
-import sys
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if BASE_DIR not in sys.path:
-    sys.path.insert(0, BASE_DIR)
 
-import pytest
 import numpy as np
+
 from src.ingest.imd_binary import (
     IMD_META,
-    is_leap_year,
-    get_days_in_year,
-    get_grid_coordinates,
-    write_imd_binary,
-    read_imd_binary,
+    extract_bbox_grid,
     extract_point_timeseries,
-    extract_bbox_grid
+    get_days_in_year,
+    is_leap_year,
+    read_imd_binary,
+    write_imd_binary,
 )
 
 
@@ -36,7 +31,7 @@ def test_imd_rainfall_roundtrip(tmp_path):
     year = 2026
     ndays = 365
     shape = (ndays, m["nrows"], m["ncols"])
-    
+
     # Generate test array
     np.random.seed(42)
     test_arr = np.random.uniform(0.0, 100.0, size=shape).astype(np.float32)

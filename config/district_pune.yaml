@@ -1,0 +1,88 @@
+# =============================================================================
+# District configuration — Pune (Maharashtra)
+# Every district-specific constant lives here. To onboard a new district, copy
+# this file, change the values, and run:
+#   python -m src.pipeline.run --config config/district_<name>.yaml
+# =============================================================================
+
+district:
+  key: pune
+  name: Pune
+  name_mr: पुणे
+  name_hi: पुणे
+  state: Maharashtra
+  state_lgd: 27
+  district_lgd: 490
+  # Blocks excluded from panchayat-level modelling (urban blocks with no or
+  # almost no Gram Panchayats). They are still shown on the map.
+  exclude_blocks: ["PUNE CITY"]
+
+crs:
+  storage: "EPSG:4326"
+  metric: "EPSG:32643"          # UTM zone 43N — area, slope, distance
+
+# Analysis bounding box (lon/lat) — district bounds + ~0.1° buffer
+bbox:
+  west: 73.20
+  south: 17.80
+  east: 75.30
+  north: 19.50
+
+boundaries:
+  # Pre-extracted LGD layers (urbanmorph/geodata). See src/ingest/boundaries.py
+  # for how to re-extract them for another district.
+  source_panchayats: data/pune/raw/boundaries/pune_panchayats.geojson
+  source_blocks: data/pune/raw/boundaries/pune_blocks.geojson
+  lgd_blocks_parquet_url: "https://github.com/urbanmorph/geodata/raw/main/LGD_Blocks.parquet"
+  lgd_panchayats_parquet_url: "https://github.com/urbanmorph/geodata/raw/main/LGD_panchayats.parquet"
+
+period:
+  start: "2024-06-01"           # first date with archived ECMWF IFS 0.25° lead-1..5 forecasts
+  end: "2026-08-31"             # last date with CHIRPS v2.0 *final* daily data at audit time
+
+validation:
+  # Temporal hold-out: everything on/after this date is never seen in training.
+  test_start: "2026-01-01"
+  # Calibration = every 5th week before test_start (blocked, 2-day buffers) - see src/models/train.py
+  # Fraction of Gram Panchayats held out spatially (grouped, never trained on)
+  spatial_holdout_fraction: 0.20
+  random_seed: 42
+  bootstrap_samples: 300
+
+forecast:
+  provider: open_meteo_previous_runs
+  model: ecmwf_ifs025           # ECMWF IFS open data, 0.25° (~27 km) — the coarse NWP
+  grid_resolution_deg: 0.25
+  lead_days: [1, 2, 3, 4, 5]
+  timezone: "Asia/Kolkata"
+
+ground_truth:
+  rainfall:
+    source: chirps_v2_daily_p05  # 0.05° gauge-blended satellite rainfall (CHC/UCSB)
+    resolution_deg: 0.05
+  temperature_humidity_wind:
+    source: era5_land            # 0.1° land reanalysis via Open-Meteo archive
+    resolution_deg: 0.1
+  independent_validation:
+    - imd_gridded_rain_025       # IMD 0.25° gauge-only gridded rainfall (never used in training)
+    - user_station_csv           # real AWS/rain-gauge CSVs dropped into data/raw/stations/
+
+static:
+  dem: copernicus_glo30          # Copernicus DEM GLO-30 (30 m), AWS open data
+  lulc: esa_worldcover_2021_v200 # 10 m
+  climatology: chpclim_v2        # CHIRPS monthly climatology (0.05°)
+  # Prevailing south-west monsoon low-level flow direction (degrees FROM),
+  # used for the windward-exposure index.
+  monsoon_flow_from_deg: 250
+  # Western Ghats crest search window (longitude) used to trace the crest line
+  ghat_crest_search_lon: [73.30, 73.95]
+
+operational:
+  # Live forecast: regular Open-Meteo forecast API with the same model
+  live_forecast_model: ecmwf_ifs025
+  # Operational horizon: today (0) + 7 days. The model was trained and validated on leads 1-5;
+  # day 0 and days 6-7 are downscaled with the same model and flagged as outside the validated range.
+  live_lead_days: [0, 1, 2, 3, 4, 5, 6, 7]
+  refresh_hour_ist: 6              # the dashboard server re-issues the live forecast daily after this hour
+  default_language: mr
+  languages: [mr, en, hi]

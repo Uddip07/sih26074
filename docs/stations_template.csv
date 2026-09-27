@@ -1,0 +1,2 @@
+station_id,station_name,latitude,longitude,date,rain_mm,tmax_c,tmin_c,rh_pct
+MH_PUNE_0001,Example station (replace with real records),18.5204,73.8567,2026-07-01,12.5,27.4,21.6,88

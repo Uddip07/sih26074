@@ -1,0 +1,94 @@
+# =============================================================================
+# Model configuration (shared by all districts)
+# =============================================================================
+
+variables:
+  rain:
+    target: rain_obs          # CHIRPS (or configured rainfall truth), mm/day
+    forecast: fc_rain         # block NWP forecast, mm/day
+    residual_space: auto      # auto | log1p | linear  (auto = pick by validation RMSE)
+    lower: 0.0
+    upper: null
+    exceedance_thresholds: [2.5, 15.6, 64.5]   # IMD light / moderate / heavy rain
+  tmax:
+    target: tmax_obs
+    forecast: fc_tmax
+    residual_space: linear
+    lower: -10
+    upper: 55
+  tmin:
+    target: tmin_obs
+    forecast: fc_tmin
+    residual_space: linear
+    lower: -15
+    upper: 40
+  rh:
+    target: rh_obs
+    forecast: fc_rh
+    residual_space: linear
+    lower: 0
+    upper: 100
+  wind:
+    target: wind_obs
+    forecast: fc_wind
+    residual_space: linear
+    lower: 0
+    upper: null
+
+# Feature families (used for SHAP grouping and ablations)
+features:
+  forecast: [fc_rain, fc_tmax, fc_tmin, fc_rh, fc_wind, fc_rain_log1p, lead_day,
+             fc_rain_3d_block, fc_rain_ante3]
+  season: [doy_sin, doy_cos, is_monsoon, month]
+  terrain: [elev_mean, elev_std, elev_max, elev_p90, slope_mean, aspect_sin, aspect_cos, windward_exposure,
+            tpi_300m, tpi_2km, crest_dist_km, upwind_barrier_m, elev_diff, elev_max_diff]
+  landcover: [lc_tree_pct, lc_shrub_pct, lc_grass_pct, lc_crop_pct, lc_builtup_pct, lc_bare_pct,
+              lc_water_all_pct, lc_natural_veg_pct]
+  hydro: [coast_dist_km, river_dist_km, river_density_km_km2, reservoir_dist_km]
+  soil: [soil_clay_pct, soil_sand_pct, soil_awc_mm, soil_soc_gkg]
+  vegetation: [ndvi]
+  climatology: [clim_month_gp, clim_ratio_month, clim_ratio_annual, clim_annual_gp]
+  history: [hist_bias]
+  antecedent: [ante_obs7_lag3]
+
+# Raw lat/lon allow a tree model to memorise location; they are excluded by
+# default (audit 4.7) and kept only as an ablation.
+exclude_features: [latitude, longitude]
+
+xgboost:
+  base:
+    n_estimators: 600
+    max_depth: 6
+    learning_rate: 0.05
+    subsample: 0.8
+    colsample_bytree: 0.8
+    min_child_weight: 3
+    reg_lambda: 1.0
+    tree_method: hist
+    max_bin: 256
+    n_jobs: -1
+    random_state: 42
+  # Search space from spec section 7.2
+  search_space:
+    n_estimators: [200, 800]
+    max_depth: [3, 8]
+    learning_rate: [0.01, 0.1]
+    subsample: [0.7, 1.0]
+    colsample_bytree: [0.7, 1.0]
+    min_child_weight: [1, 5]
+  tuning:
+    enabled: true
+    n_trials: 12
+    sample_rows: 300000
+    cv_folds: 3               # GroupKFold by gram panchayat
+  quantiles: [0.1, 0.5, 0.9]
+
+training:
+  sample_rows_per_variable: 2500000   # cap for memory; stratified by lead & date
+  early_stopping_rounds: 50
+  conformal: true
+
+postprocess:
+  # none | block_forecast  (block_forecast = rescale GP values so their area-weighted mean equals
+  # the raw block forecast: pure spatial disaggregation, no bias correction)
+  mass_conservation: none
