@@ -27,7 +27,6 @@ Outputs
 from __future__ import annotations
 
 import argparse
-import time
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -37,7 +36,7 @@ import pandas as pd
 from src.common import manifest
 from src.common.config import Config, load_config
 from src.common.geo import Grid, area_weights
-from src.common.http import RateLimited, get_json
+from src.common.http import get_json, patiently
 from src.common.logging_utils import get_logger
 from src.ingest.boundaries import load_blocks, load_panchayats
 
@@ -132,22 +131,7 @@ def fetch_archive(cfg: Config | None = None, patient: bool = True) -> Path:
     log.info("NWP archive: %d grid nodes (%.2f°) x %s..%s x leads %s",
              len(nodes), grid.res, cfg["period"]["start"], cfg["period"]["end"], cfg.lead_days)
     for n, (_, _, lat, lon) in enumerate(nodes, 1):
-        transient = 0
-        while True:
-            try:
-                fetch_node(cfg, float(lat), float(lon), cache)
-                break
-            except RateLimited as exc:
-                if not patient:
-                    raise
-                log.warning("quota exhausted (%s); sleeping 30 min then resuming", exc)
-                time.sleep(1800)
-            except RuntimeError as exc:  # network/DNS/server trouble: back off, retry this node
-                transient += 1
-                if transient > 6:
-                    raise
-                log.warning("transient failure on node %.2f,%.2f (%s); retry %d/6 in 5 min", lat, lon, exc, transient)
-                time.sleep(300)
+        patiently(lambda lat=lat, lon=lon: fetch_node(cfg, float(lat), float(lon), cache), f"node {float(lat):.2f},{float(lon):.2f}", patient)
         if n % 5 == 0 or n == len(nodes):
             log.info("  nodes done: %d/%d", n, len(nodes))
     return build_tables(cfg)
@@ -220,7 +204,8 @@ def fetch_live(cfg: Config | None = None, issue_date: date | None = None) -> pd.
     the training archive.
     """
     cfg = cfg or load_config()
-    issue = issue_date or date.today()
+    issue = issue_date or cfg.today()
+    is_today = issue == cfg.today()
     grid, w = forecast_grid(cfg)
     nodes = w[["lat", "lon"]].drop_duplicates().sort_values(["lat", "lon"]).reset_index(drop=True)
     leads = cfg.live_lead_days
@@ -237,18 +222,18 @@ def fetch_live(cfg: Config | None = None, issue_date: date | None = None) -> pd.
             "models": cfg["operational"]["live_forecast_model"],
             "timezone": cfg["forecast"]["timezone"], "wind_speed_unit": "kmh",
         }
-        if issue == date.today():
+        if is_today:
             params["forecast_days"] = max(leads) + 1
         else:  # past issue: reconstruct from the previous-runs archive
             params.update({"start_date": start.isoformat(), "end_date": end.isoformat()})
-        url = FORECAST_URL if issue == date.today() else PREVIOUS_RUNS_URL
-        if issue != date.today():
+        url = FORECAST_URL if is_today else PREVIOUS_RUNS_URL
+        if not is_today:
             params["hourly"] = ",".join(f"{v}_previous_day{k}" for v in HOURLY_VARS for k in leads)
         js = get_json(url, params=params)
         js = js if isinstance(js, list) else [js]
         for (_, node), res in zip(sub.iterrows(), js):
             h = res["hourly"]
-            if issue == date.today():
+            if is_today:
                 renamed = {f"{k}_previous_day0": v for k, v in h.items() if k != "time"}
                 d = _daily_from_hourly(h["time"], renamed, 0)
                 d["lead_day"] = (d["valid_date"] - pd.Timestamp(issue)).dt.days

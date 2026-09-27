@@ -158,10 +158,10 @@
     "source": "MODIS MOD13Q1/MYD13Q1 v6.1 (Didan 2021) via Microsoft Planetary Computer",
     "licence": "NASA EOSDIS data - no restrictions on reuse (cite LP DAAC)",
     "produced_by": "src.ingest.ndvi",
-    "generated_utc": "2026-09-26T09:40:15+00:00",
-    "bytes": 666997,
-    "sha256": "42cec7dd1ca03b529144f4fdbbaba49f33d8efa9907e91158276de170c674d41",
-    "composites": 73,
+    "generated_utc": "2026-09-27T14:24:15+00:00",
+    "bytes": 677261,
+    "sha256": "75f34ccfc3bdaa22d1050bda93aebc3e85577cdf595842d638a0f806a28eb67f",
+    "composites": 74,
     "latency_days": 8
   },
   "gp_soil": {

@@ -1,0 +1,71 @@
+# =============================================================================
+# Dashboard (Gram-Vani) presentation settings. Served to the page by /api/meta, so nothing
+# here is duplicated in JavaScript.
+# =============================================================================
+
+app_name: Gram-Vani
+
+# Native names for the language buttons (languages themselves: district operational.languages)
+language_names: {mr: "मराठी", hi: "हिन्दी", en: "English"}
+
+server:
+  host: 127.0.0.1
+  port: 8080
+
+basemap:
+  url: "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+  attribution: "© OpenStreetMap contributors"
+  max_zoom: 14
+  min_zoom: 7
+  opacity: 0.45
+
+# "Find my panchayat": a GPS fix further than this from any GP is reported as outside the district
+locate_max_distance_m: 5000
+
+# Names of the time-varying model inputs, for the "incomplete inputs" notice
+input_labels:
+  fc_rain_ante3: "block forecasts of the previous 3 days"
+  ante_obs7_lag3: "observed rainfall of the past week"
+  ndvi: "satellite vegetation index (NDVI)"
+
+# Colours for map states that are not data values
+colors:
+  no_data: "#bdbcb6"
+  no_gram_panchayat: "#d9d8d2"
+
+# Colour ramps (light -> dark). Bins are the class edges; a ramp has len(bins) + 1 colours.
+ramps:
+  rain: ["#f3f6fa", "#dce9f8", "#bcd5f2", "#94bbe9", "#6b9ede", "#4580cf", "#2a64b3", "#1a4b8f", "#0e2f5e"]
+  blues: ["#f3f6fa", "#d4e4f7", "#a9c9ef", "#77a8e3", "#4a86d4", "#2a67b8", "#1a4b8f", "#0e2f5e"]
+  oranges: ["#fff3e6", "#fdd9b2", "#fbbd7c", "#f89c4a", "#ec7a25", "#cf5a12", "#a4410b", "#732c07"]
+  purples: ["#f4f2fa", "#dcd7f0", "#bfb6e3", "#9f92d3", "#8071c0", "#6453a9", "#4a3a8f", "#322670"]
+  diverging: ["#8c510a", "#bf812d", "#dfc27d", "#e8e6e1", "#80cdc1", "#35978f", "#01665e"]
+
+# Map layers ("Show" menu), in menu order. field = key in the published issue JSON.
+#   block_field: the block-forecast key shown on the block map and on areas without a GP (omit = none)
+#   scale: multiply values before binning (probabilities -> %)
+layers:
+  r:    {label: "Rainfall (mm)", legend: "Rain (mm/day)", ramp: rain, block_field: r,
+         bins: [0.1, 1, 2.5, 5, 7.5, 15.6, 35.5, 64.5]}
+  p25:  {label: "Chance of rain ≥ 2.5 mm", legend: "Chance of rain ≥ 2.5 mm (%)", ramp: blues, scale: 100,
+         bins: [10, 25, 40, 55, 70, 85, 95]}
+  p645: {label: "Chance of heavy rain ≥ 64.5 mm", legend: "Chance of heavy rain ≥ 64.5 mm (%)", ramp: purples,
+         scale: 100, bins: [2, 5, 10, 20, 30, 45, 60]}
+  unc:  {label: "Rain uncertainty (P90 − P10)", legend: "Rain uncertainty P90 − P10 (mm)", ramp: purples,
+         derived: [r90, "-", r10], bins: [1, 3, 6, 10, 20, 35, 60]}
+  dr:   {label: "Panchayat − block rain (mm)", legend: "Panchayat − block rain (mm)", ramp: diverging,
+         derived: [r, "-", fr], bins: [-10, -4, -1, 1, 4, 10], end_labels: ["drier", "wetter"]}
+  tx:   {label: "Max temperature (°C)", legend: "Max temperature (°C)", ramp: oranges, block_field: tx,
+         bins: [24, 27, 30, 33, 36, 39, 42]}
+  tn:   {label: "Min temperature (°C)", legend: "Min temperature (°C)", ramp: oranges, block_field: tn,
+         bins: [8, 11, 14, 17, 20, 22, 24]}
+  rh:   {label: "Humidity (%)", legend: "Relative humidity (%)", ramp: blues, block_field: rh,
+         bins: [30, 40, 50, 60, 70, 80, 90]}
+  w:    {label: "Wind (km/h)", legend: "Max wind (km/h)", ramp: purples, block_field: w,
+         bins: [8, 12, 16, 20, 25, 30, 40]}
+  sev:  {label: "Warning level", legend: "Warning level (IMD)", categorical: severity}
+
+# Published web geometry (src/pipeline/publish.py)
+geometry:
+  simplify_m: 60          # topology-preserving simplification tolerance
+  min_area_km2: 0.1       # areas-without-GP smaller than this are digitising slivers

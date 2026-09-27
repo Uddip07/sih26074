@@ -9,6 +9,7 @@ import yaml
 from src.advisory import bulletin, disease_models, rules
 from src.advisory.crop_calendar import _in_window, crops_for
 from src.advisory.et0 import et0_fao56, extraterrestrial_radiation
+from src.common.config import load_config
 
 GP = {"gp_code": "1", "gp_name": "TESTGAON", "block_name": "BARAMATI", "latitude": 18.2, "elev_mean": 540,
       "slope_mean": 1.5, "soil_clay_pct": 45.0, "tpi_2km": 0.0}
@@ -83,7 +84,8 @@ def test_extraterrestrial_radiation_fao56_example8():
 
 
 def test_et0_plausible():
-    e = et0_fao56([34, 28], [20, 23], [40, 90], [15, 10], 18.5, 560, [120, 200])
+    E = load_config().advisory["et0"]
+    e = et0_fao56([34, 28], [20, 23], [40, 90], [15, 10], 18.5, 560, [120, 200], E["krs"], E["gust_to_mean"])
     assert 5 < e[0] < 9 and 1.5 < e[1] < 4.5 and e[0] > e[1]
 
 

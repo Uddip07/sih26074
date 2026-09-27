@@ -56,7 +56,7 @@ def run(source: Config, target: Config) -> dict:
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("--source", default="config/district_pune.yaml")
-    ap.add_argument("--target", default="config/district_satara.yaml")
+    ap.add_argument("--source", required=True, help="district config the model was trained on")
+    ap.add_argument("--target", required=True, help="district config to apply it to")
     a = ap.parse_args()
     run(load_config(a.source), load_config(a.target))

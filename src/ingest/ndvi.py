@@ -7,7 +7,7 @@ API (anonymous SAS tokens, no account needed).
 * Pixels are masked with the MODIS ``pixel_reliability`` layer (0 good, 1 marginal kept;
   2 snow, 3 cloudy dropped).
 * GP value = mean of valid pixels inside the GP polygon.
-* Operational latency: a composite is only usable ``LATENCY_DAYS`` after its
+* Operational latency: a composite is only usable ``ndvi.latency_days`` after its
   period ends (processing + publication delay). The dataset feature ``ndvi`` for an
   issue date is the latest composite *available* on that date, so there is no
   look-ahead.
@@ -40,14 +40,13 @@ os.environ.setdefault("GDAL_DISABLE_READDIR_ON_OPEN", "EMPTY_DIR")
 STAC = "https://planetarycomputer.microsoft.com/api/stac/v1/search"
 SAS = "https://planetarycomputer.microsoft.com/api/sas/v1/token/{account}/{container}"
 COLLECTION = "modis-13Q1-061"
-LATENCY_DAYS = 8
 SOURCE = "MODIS MOD13Q1/MYD13Q1 v6.1 (Didan 2021) via Microsoft Planetary Computer"
 LICENCE = "NASA EOSDIS data - no restrictions on reuse (cite LP DAAC)"
 
 
 def _search(cfg: Config) -> list[dict]:
     """STAC search in 3-month windows (avoids relying on server-side pagination caps)."""
-    start = pd.Timestamp(cfg["period"]["start"]) - pd.Timedelta(days=40)
+    start = pd.Timestamp(cfg["period"]["start"]) - pd.Timedelta(days=int(cfg["ndvi"]["search_lookback_days"]))
     end = pd.Timestamp.today().normalize()
     items: dict[str, dict] = {}
     for w0 in pd.date_range(start, end, freq="3MS").union([start]):
@@ -130,20 +129,20 @@ def build(cfg: Config | None = None) -> pd.DataFrame:
     df = df.groupby(["gp_code", "start", "end", "platform"], as_index=False)[["sum", "n"]].sum()
     df["ndvi"] = (df["sum"] / df["n"]).astype("float32")
     df["start"], df["end"] = pd.to_datetime(df["start"]), pd.to_datetime(df["end"])
-    df["available_date"] = df["end"] + pd.Timedelta(days=LATENCY_DAYS)
+    df["available_date"] = df["end"] + pd.Timedelta(days=int(cfg["ndvi"]["latency_days"]))
     df = df[["gp_code", "platform", "start", "end", "available_date", "ndvi", "n"]].sort_values(["gp_code", "end"])
     df.to_parquet(out, index=False)
     static = df.groupby("gp_code")["ndvi"].agg(ndvi_mean="mean", ndvi_std="std").reset_index()
     static.to_parquet(paths.interim / "gp_ndvi_static.parquet", index=False)
     manifest.register(paths.data / "manifest.json", "gp_ndvi", out, SOURCE, LICENCE, "src.ingest.ndvi",
                       extra={"composites": int(df[["platform", "end"]].drop_duplicates().shape[0]),
-                             "latency_days": LATENCY_DAYS})
+                             "latency_days": int(cfg["ndvi"]["latency_days"])})
     log.info("NDVI: %d GP-composites, %d GPs, NDVI %.2f..%.2f", len(df), df["gp_code"].nunique(),
              df["ndvi"].min(), df["ndvi"].max())
     return df
 
 
-def ndvi_for_issue_dates(ndvi: pd.DataFrame, keys: pd.DataFrame) -> pd.Series:
+def ndvi_for_issue_dates(ndvi: pd.DataFrame, keys: pd.DataFrame, tolerance_days: int) -> pd.Series:
     """Latest composite available on each row's issue_date (as-of join, no look-ahead)."""
     left = keys[["gp_code", "issue_date"]].reset_index()
     left["issue_date"] = left["issue_date"].astype("datetime64[ns]")
@@ -152,7 +151,7 @@ def ndvi_for_issue_dates(ndvi: pd.DataFrame, keys: pd.DataFrame) -> pd.Series:
     right["available_date"] = right["available_date"].astype("datetime64[ns]")
     right = right.sort_values("available_date")
     m = pd.merge_asof(left, right, left_on="issue_date", right_on="available_date", by="gp_code",
-                      direction="backward", tolerance=pd.Timedelta(days=40))
+                      direction="backward", tolerance=pd.Timedelta(days=int(tolerance_days)))
     return m.set_index("index")["ndvi"].reindex(keys.index).astype("float32")
 
 

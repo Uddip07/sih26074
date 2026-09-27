@@ -2,7 +2,7 @@
 "use strict";
 
 const S = {
-  meta: null, issues: [], issue: null, data: null, lead: 0, v: "r", lang: "mr", view: "split",
+  meta: null, issues: [], issue: null, data: null, lead: 0, v: null, lang: null, view: "split",
   gp: null, gpLayer: null, blkLayer: null, geoGp: null, geoBlk: null, byCode: {}, sel: null,
 };
 const $ = (id) => document.getElementById(id);
@@ -27,68 +27,54 @@ function banner(msg) { const b = $("banner"); b.textContent = msg; b.hidden = !m
 const pct = (x, d = 1) => (x == null || !isFinite(x) ? "–" : `${x >= 0 ? "+" : ""}${(x * 100).toFixed(d)}%`);
 const num = (x, d = 1) => (x == null || !isFinite(x) ? "–" : Number(x).toFixed(d));
 
-/* ---------------------------------------------------------------- colour scales */
-const RAIN_BINS = [0.1, 1, 2.5, 5, 7.5, 15.6, 35.5, 64.5];           // IMD class edges + finer light-rain steps
-const BLUES = ["#f3f6fa", "#d4e4f7", "#a9c9ef", "#77a8e3", "#4a86d4", "#2a67b8", "#1a4b8f", "#0e2f5e"];
-const RAIN_RAMP = ["#f3f6fa", "#dce9f8", "#bcd5f2", "#94bbe9", "#6b9ede", "#4580cf", "#2a64b3", "#1a4b8f", "#0e2f5e"];
-const ORANGES = ["#fff3e6", "#fdd9b2", "#fbbd7c", "#f89c4a", "#ec7a25", "#cf5a12", "#a4410b", "#732c07"];
-const PURPLES = ["#f4f2fa", "#dcd7f0", "#bfb6e3", "#9f92d3", "#8071c0", "#6453a9", "#4a3a8f", "#322670"];
-const DIV = ["#8c510a", "#bf812d", "#dfc27d", "#e8e6e1", "#80cdc1", "#35978f", "#01665e"]; // dry <- 0 -> wet
-const SEV = { green: "#2E7D32", yellow: "#F9C80E", orange: "#E8720C", red: "#9B2423" };
-const SEV_ICON = { green: "✓", yellow: "!", orange: "⚠", red: "⛔" };
+/* ---------------------------------------------------------------- colour scales
+   Layers, bins, ramps, colours and the basemap all come from config/dashboard.yaml and
+   config/advisory_rules.yaml via /api/meta - nothing is defined here. */
+const D = () => S.meta.dashboard;
+const LAYER = (v) => D().layers[v];
+const SEV = (s) => S.meta.severity_colors[s];
 
 function binColor(v, bins, ramp) {
-  if (v == null || !isFinite(v)) return "#bdbcb6";
+  if (v == null || !isFinite(v)) return D().colors.no_data;
   let i = 0; while (i < bins.length && v >= bins[i]) i++;
   return ramp[Math.min(i, ramp.length - 1)];
 }
-const SCALES = {
-  r:   { label: "Rain (mm/day)", bins: RAIN_BINS, ramp: RAIN_RAMP, ticks: ["0", "0.1", "1", "2.5", "5", "7.5", "15.6", "35.5", "64.5+"] },
-  p25: { label: "Chance of rain ≥ 2.5 mm (%)", bins: [10, 25, 40, 55, 70, 85, 95], ramp: BLUES, ticks: ["0", "10", "25", "40", "55", "70", "85", "95+"], scale: 100 },
-  p645:{ label: "Chance of heavy rain ≥ 64.5 mm (%)", bins: [2, 5, 10, 20, 30, 45, 60], ramp: PURPLES, ticks: ["0", "2", "5", "10", "20", "30", "45", "60+"], scale: 100 },
-  unc: { label: "Rain uncertainty P90 − P10 (mm)", bins: [1, 3, 6, 10, 20, 35, 60], ramp: PURPLES, ticks: ["0", "1", "3", "6", "10", "20", "35", "60+"] },
-  dr:  { label: "Panchayat − block rain (mm)", bins: [-10, -4, -1, 1, 4, 10], ramp: DIV, ticks: ["drier", "-10", "-4", "-1", "+1", "+4", "+10", "wetter"] },
-  tx:  { label: "Max temperature (°C)", bins: [24, 27, 30, 33, 36, 39, 42], ramp: ORANGES, ticks: ["", "24", "27", "30", "33", "36", "39", "42+"] },
-  tn:  { label: "Min temperature (°C)", bins: [8, 11, 14, 17, 20, 22, 24], ramp: ORANGES, ticks: ["", "8", "11", "14", "17", "20", "22", "24+"] },
-  rh:  { label: "Relative humidity (%)", bins: [30, 40, 50, 60, 70, 80, 90], ramp: BLUES, ticks: ["", "30", "40", "50", "60", "70", "80", "90+"] },
-  w:   { label: "Max wind (km/h)", bins: [8, 12, 16, 20, 25, 30, 40], ramp: PURPLES, ticks: ["", "8", "12", "16", "20", "25", "30", "40+"] },
-};
+function layerColor(v, x) { const L_ = LAYER(v); return binColor(x, L_.bins, D().ramps[L_.ramp]); }
 
 function gpValue(rec, v, k) {
   if (!rec) return null;
-  const a = (key) => (rec[key] ? rec[key][k] : null);
-  switch (v) {
-    case "p25": case "p645": { const x = a(v); return x == null ? null : x * 100; }
-    case "unc": { const lo = a("r10"), hi = a("r90"); return lo == null || hi == null ? null : hi - lo; }
-    case "dr": { const g = a("r"), b = a("fr"); return g == null || b == null ? null : g - b; }
-    default: return a(v);
+  const L_ = LAYER(v), a = (key) => (rec[key] ? rec[key][k] : null);
+  if (L_.derived) {
+    const [x, op, y] = L_.derived, xa = a(x), ya = a(y);
+    if (xa == null || ya == null) return null;
+    return op === "-" ? xa - ya : op === "+" ? xa + ya : null;
   }
+  const x = a(v);
+  return x == null ? null : x * (L_.scale ?? 1);
 }
-function blockValue(lgd, v, k) {
-  const b = S.data?.blocks?.[String(lgd)]; if (!b) return null;
-  const map = { r: "r", tx: "tx", tn: "tn", rh: "rh", w: "w" };
-  const key = map[v] || "r";
-  return b[key] ? b[key][k] : null;
+function blockValue(lgd, field, k) {
+  const b = S.data?.blocks?.[String(lgd)];
+  return b && b[field] ? b[field][k] : null;
 }
-const blockVar = (v) => (["tx", "tn", "rh", "w"].includes(v) ? v : "r");
+/* the block map shows the layer's own block field, or rain when the layer has none (e.g. probabilities) */
+const blockLayer = (v) => (LAYER(v).block_field ? v : Object.keys(D().layers).find((k) => D().layers[k].block_field === "r"));
 
 /* ---------------------------------------------------------------- maps */
 let mapG, mapB, syncing = false;
 function makeMap(id) {
-  const m = L.map(id, { zoomControl: true, attributionControl: true, preferCanvas: true, minZoom: 7 });
-  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 14, opacity: 0.45, attribution: "© OpenStreetMap contributors" }).addTo(m);
+  const bm = D().basemap;
+  const m = L.map(id, { zoomControl: true, attributionControl: true, preferCanvas: true, minZoom: bm.min_zoom });
+  L.tileLayer(bm.url, { maxZoom: bm.max_zoom, opacity: bm.opacity, attribution: bm.attribution }).addTo(m);
   return m;
 }
 function syncMaps(a, b) {
   a.on("move", () => { if (syncing) return; syncing = true; b.setView(a.getCenter(), a.getZoom(), { animate: false }); syncing = false; });
 }
 
-const URBAN_VARS = { r: "r", tx: "tx", tn: "tn", rh: "rh", w: "w" };
 function urbanFill(blockLgd) {
-  const bv = URBAN_VARS[S.v];
-  if (!bv) return "#d9d8d2";
-  return binColor(blockValue(blockLgd, bv, S.lead), SCALES[bv].bins, SCALES[bv].ramp);
+  const L_ = LAYER(S.v);
+  if (!L_.block_field) return D().colors.no_gram_panchayat;
+  return layerColor(S.v, blockValue(blockLgd, L_.block_field, S.lead));
 }
 function styleUrban(f) {
   return { fillColor: urbanFill(f.properties.block_lgd), fillOpacity: 0.7, color: "#fff", weight: 0.8, dashArray: "3 3" };
@@ -102,17 +88,15 @@ function urbanTipHtml(p) {
     <span class="muted">Not downscaled: panchayat-level forecasts apply to Gram Panchayats only.</span>`;
 }
 function styleGp(f) {
-  const rec = S.data?.gp?.[f.properties.gp_code];
-  let fill;
   if (!f.properties.modelled) return styleUrban(f);
-  else if (S.v === "sev") fill = SEV[rec?.sev] || "#bdbcb6";
-  else { const sc = SCALES[S.v]; fill = binColor(gpValue(rec, S.v, S.lead), sc.bins, sc.ramp); }
+  const rec = S.data?.gp?.[f.properties.gp_code];
+  const fill = LAYER(S.v).categorical ? (rec ? SEV(rec.sev).hex : D().colors.no_data) : layerColor(S.v, gpValue(rec, S.v, S.lead));
   const sel = S.sel === f.properties.gp_code;
   return { fillColor: fill, fillOpacity: 0.88, color: sel ? "#000" : "rgba(255,255,255,.7)", weight: sel ? 2.5 : 0.4 };
 }
 function styleBlk(f) {
-  const sc = SCALES[blockVar(S.v)];
-  return { fillColor: binColor(blockValue(f.properties.block_lgd, blockVar(S.v), S.lead), sc.bins, sc.ramp),
+  const bl = blockLayer(S.v);
+  return { fillColor: layerColor(bl, blockValue(f.properties.block_lgd, LAYER(bl).block_field, S.lead)),
            fillOpacity: 0.88, color: "#fff", weight: 1.2 };
 }
 
@@ -131,12 +115,9 @@ function gpTipHtml(p) {
   return `<b>${esc(p.gp_name)}</b> <span class="muted">${esc(p.block_name)}</span><br>${date}<br>
     Rain <b>${num(rec.r?.[k])}</b> mm (block ${num(rec.fr?.[k])}) · P10–P90 ${num(rec.r10?.[k])}–${num(rec.r90?.[k])}<br>
     Tmax ${num(rec.tx?.[k])} °C · Tmin ${num(rec.tn?.[k])} °C · RH ${num(rec.rh?.[k], 0)}%<br>
-    <span class="sev ${rec.sev}">${SEV_ICON[rec.sev]} ${esc(sevLabel(rec.sev))}</span>`;
+    <span class="sev ${rec.sev}">${SEV(rec.sev).icon} ${esc(sevLabel(rec.sev))}</span>`;
 }
-function sevLabel(s) {
-  const c = S.meta?.severity_colors?.[s]; if (!c) return s;
-  return c[`label_${S.lang}`] || c.label_en;
-}
+const sevLabel = (s) => SEV(s)[`label_${S.lang}`];
 
 function drawLayers() {
   if (S.gpLayer) S.gpLayer.remove();
@@ -161,8 +142,8 @@ function drawLayers() {
     style: styleBlk,
     onEachFeature: (f, l) => {
       l.on("mousemove", (e) => {
-        const bv = blockVar(S.v);
-        tip(e, `<b>${esc(f.properties.block_name)}</b> block<br>${SCALES[bv].label}: <b>${num(blockValue(f.properties.block_lgd, bv, S.lead))}</b><br>
+        const bl = blockLayer(S.v);
+        tip(e, `<b>${esc(f.properties.block_name)}</b> block<br>${esc(LAYER(bl).legend)}: <b>${num(blockValue(f.properties.block_lgd, LAYER(bl).block_field, S.lead))}</b><br>
           <span class="muted">One value for all ${f.properties.n_gps} panchayats</span>`);
       });
       l.on("mouseout", hideTip);
@@ -175,15 +156,19 @@ function restyle() {
 }
 function renderLegend() {
   const el = $("legend");
-  if (S.v === "sev") {
-    el.innerHTML = `<b>Warning level (IMD)</b>` + ["green", "yellow", "orange", "red"].map((s) =>
-      `<div class="cat"><span class="sw" style="background:${SEV[s]}"></span>${SEV_ICON[s]} ${esc(sevLabel(s))}</div>`).join("");
+  const L_ = LAYER(S.v);
+  if (L_.categorical) {
+    el.innerHTML = `<b>${esc(L_.legend)}</b>` + Object.keys(S.meta.severity_colors).map((s) =>
+      `<div class="cat"><span class="sw" style="background:${SEV(s).hex}"></span>${SEV(s).icon} ${esc(sevLabel(s))}</div>`).join("");
     return;
   }
-  const sc = SCALES[S.v];
-  el.innerHTML = `<b>${esc(sc.label)}</b><div class="ramp">${sc.ramp.map((c) => `<span style="background:${c}"></span>`).join("")}</div>
-    <div class="ticks">${sc.ticks.filter((_, i) => i % 2 === 0).map((t) => `<span>${esc(t)}</span>`).join("")}</div>
-    <div class="cat"><span class="sw" style="background:transparent;border:1.5px dashed var(--ink-2)"></span>${URBAN_VARS[S.v] ? "no Gram Panchayat: block value" : "no Gram Panchayat"}</div>`;
+  const ramp = D().ramps[L_.ramp];
+  const ticks = [L_.end_labels?.[0] ?? "", ...L_.bins.map(String)];
+  ticks[ticks.length - 1] += L_.end_labels ? "" : "+";
+  if (L_.end_labels) ticks.push(L_.end_labels[1]);
+  el.innerHTML = `<b>${esc(L_.legend)}</b><div class="ramp">${ramp.map((c) => `<span style="background:${c}"></span>`).join("")}</div>
+    <div class="ticks">${ticks.filter((_, i) => i % 2 === 0 || i === ticks.length - 1).map((t) => `<span>${esc(t)}</span>`).join("")}</div>
+    <div class="cat"><span class="sw" style="background:transparent;border:1.5px dashed var(--ink-2)"></span>${L_.block_field ? "no Gram Panchayat: block value" : "no Gram Panchayat"}</div>`;
 }
 
 /* ---------------------------------------------------------------- issue loading */
@@ -197,16 +182,20 @@ async function loadIssue(issue) {
   r.value = Math.min(S.lead + 1, S.data.leads.length);
   S.lead = Number(r.value) - 1;
   updateLeadLabel();
+  const gaps = Object.entries(S.data.meta.input_gaps || {});
+  banner(gaps.length ? `Today's forecast was made with incomplete inputs: ${gaps.map(([k, g]) => `${D().input_labels[k]} ${Math.round(g.available * 100)}% available (normally ${Math.round(g.seasonal_norm * 100)}%)`).join("; ")}. It will be complete once that data arrives.` : "");
   $("csvBtn").href = `/api/export/${issue}.csv`;
   restyle();
   if (S.sel) selectGp(S.sel, false);
 }
 const leadName = (k) => (k === 0 ? "Today" : `Day ${k}`);
-const validated = (k) => (S.data?.meta?.validated_leads || [1, 2, 3, 4, 5]).includes(k);
+const validated = (k) => S.meta.lead_days.includes(k);
+const rangeText = (a) => (a.length ? `${Math.min(...a)}–${Math.max(...a)}` : "");
+const unvalidatedNames = (leads) => leads.filter((k) => !validated(k)).map(leadName).join(", ");
 function updateLeadLabel() {
   const d = S.data?.valid_dates?.[S.lead], k = S.data?.leads?.[S.lead];
   $("leadLabel").textContent = d ? `${leadName(k)} · ${d}${validated(k) ? "" : " *"}` : "";
-  $("leadLabel").title = validated(k) ? "" : "Outside the validated 1–5 day range: indicative, advisories not issued for this day";
+  $("leadLabel").title = validated(k) ? "" : `Outside the validated ${rangeText(S.meta.lead_days)} day range: indicative, advisories not issued for this day`;
 }
 
 /* ---------------------------------------------------------------- GP detail */
@@ -234,19 +223,19 @@ async function selectGp(code, pan = true) {
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div><h3 style="margin:0">${esc(b.gp_name)}</h3><div class="muted">${esc(L_.block)}: ${esc(b.block_name)} · LGD ${esc(code)} · ${esc(L_.issued)} ${esc(b.issue_date)}</div></div>
-        <span class="sev ${b.overall_severity}" aria-label="Warning level">${SEV_ICON[b.overall_severity]} ${esc(b.overall_label)}</span>
+        <span class="sev ${b.overall_severity}" aria-label="Warning level">${SEV(b.overall_severity).icon} ${esc(b.overall_label)}</span>
       </div>
       <p class="muted" style="margin:8px 0 0">${esc(b.summary)}</p>
     </div>
     <div class="card"><h3>${days.length}-day forecast: block vs panchayat</h3>
       <div class="chart" id="gpChart" aria-label="Rain by day, block vs panchayat"></div>
       <table class="data"><thead><tr><th>Day</th><th>Block rain</th><th>GP rain</th><th>Likely range</th><th>Chance</th><th>Tmax/Tmin</th><th>RH</th><th>Wind</th></tr></thead><tbody>${rows}</tbody></table>
-      <p class="muted">Rain in mm. Range = P10–P90 (80% interval, conformally calibrated).${days.some((d) => !validated(d.lead_day)) ? " * Today and days 6–7 are outside the validated 1–5 day range (indicative); advisories cover days 1–5." : ""}</p></div>
+      <p class="muted">Rain in mm. Range = P10–P90 (80% interval, conformally calibrated).${days.some((d) => !validated(d.lead_day)) ? ` * ${unvalidatedNames(days.map((d) => d.lead_day))}: outside the validated day ${rangeText(S.meta.lead_days)} range (indicative); advisories cover days ${rangeText(S.meta.lead_days)}.` : ""}</p></div>
     <div class="card"><h3>Why this panchayat differs from its block (${leadName(S.data.leads[S.lead]).toLowerCase()})</h3><div id="shap"></div>
       <p class="muted">Contribution of each factor group to the panchayat's rain correction (mm, exact TreeSHAP). Positive = wetter than the block value.</p></div>
     <div class="card"><h3>${esc(L_.general_advisory)} / ${esc(L_.crop_advisory)}</h3>
       ${b.crops?.length ? `<p class="muted">${b.crops.map(esc).join(" · ")}</p>` : ""}
-      ${advs.map((a) => `<div class="adv ${a.severity}"><b>${SEV_ICON[a.severity]} ${esc(a.title)}</b>${esc(a.text)} ${esc(a.action)}</div>`).join("")}
+      ${advs.map((a) => `<div class="adv ${a.severity}"><b>${SEV(a.severity).icon} ${esc(a.title)}</b>${esc(a.text)} ${esc(a.action)}</div>`).join("")}
       <div class="muted">${esc(b.review?.status === "approved" ? `${L_.reviewed_by}: ${b.review.officer}` : b.review?.note || "")}</div></div>
     <div class="card"><h3>Bulletin & farmer messages</h3>
       <div class="row">
@@ -337,7 +326,8 @@ async function renderScorecard() {
     return `<div class="kpi"><div class="v">${better(d.skill_vs_block_copy)}</div><div class="l"><b>${name}</b><br>
       typical error ${num(d.rmse_model, 1)} ${u} (block value alone: ${num(d.rmse_block_copy, 1)} ${u})</div></div>`; };
   const byLead = (v) => s.variables?.[v]?.by_lead || {};
-  const leads = S.data?.leads || [0, 1, 2, 3, 4, 5, 6, 7];
+  const leads = S.meta.live_lead_days;
+  const [t0, t1] = s.test_period.map((d) => new Date(d).toLocaleDateString("en-GB", { month: "short", year: "numeric" }));
   const leadRow = (k) => {
     const r = byLead("rain")[k], t = byLead("tmax")[k];
     if (!r) return `<tr><td>${leadName(k)}</td><td colspan="3" class="muted">not tested (indicative only)</td></tr>`;
@@ -345,13 +335,13 @@ async function renderScorecard() {
   };
   el.innerHTML = `
     <div class="card"><h3>How accurate is the panchayat forecast?</h3>
-      <p class="muted">Tested on real ECMWF forecasts (days 1–5) for Jan–Aug 2026, on panchayats the model had never seen,
-        against satellite rainfall (CHIRPS) and ERA5 weather. "Better" = smaller error than using the block value for every panchayat.</p>
+      <p class="muted">Tested on real ${esc(S.meta.forecast_label)} forecasts (days ${rangeText(s.tested_leads)}) from ${t0} to ${t1}, on panchayats the model had never seen,
+        against ${s.truth_labels.map(esc).join(" and ")}. "Better" = smaller error than using the block value for every panchayat.</p>
       <div class="kpis">${Object.keys(VAR_INFO).filter((v) => pv[v]).map(kpi).join("")}</div></div>
     <div class="card"><h3>Rain accuracy by forecast day</h3>
       <table class="data"><thead><tr><th>Day</th><th>Panchayat error</th><th>Block error</th><th>Result</th></tr></thead>
       <tbody>${leads.map(leadRow).join("")}</tbody></table>
-      <p class="muted">Error = typical (root-mean-square) difference from what was observed. Today and days 6–7 are shown on the map but were not part of testing.</p></div>
+      <p class="muted">Error = typical (root-mean-square) difference from what was observed. ${unvalidatedNames(leads) ? `${unvalidatedNames(leads)} are shown on the map but were not part of testing.` : ""}</p></div>
     <p><a class="btn" href="/api/report" target="_blank" rel="noopener">Full technical validation report</a></p>`;
 }
 
@@ -378,11 +368,15 @@ async function renderOfficer() {
       <form id="upForm" style="margin-top:8px"><p class="muted">Or upload the official block forecast (CSV: block_lgd/block_name, lead_day, rain, tmax, tmin, rh, wind). <a href="/api/template/block_forecast.csv">Template</a></p>
         <div class="row"><input type="date" name="issue_date" required aria-label="Issue date"><input type="file" name="file" accept=".csv" required aria-label="Block forecast CSV">
         <button class="btn" type="submit">Downscale</button></div></form><div id="runMsg" class="muted"></div></div>
-    <div class="card"><h3>Next 6 hours (short-range NWP)</h3><div id="nowcast" class="muted">Loading…</div></div>
+    <div class="card"><h3>Short-range rain (NWP, next hours)</h3><div id="nowcast" class="muted">Loading…</div></div>
     <div class="card"><h3>Outbox (simulated)</h3><div id="outbox" class="muted">Loading…</div></div>
     <div class="card"><h3>Audit log</h3><div id="audit" class="muted">Loading…</div></div>`;
   $("tokSave").onclick = () => { try { sessionStorage.setItem("adminToken", $("tok").value.trim()); } catch { /* ignore */ } $("offMsg").textContent = "Token saved for this tab."; };
-  const officer = () => $("officerName").value.trim() || "DAMU officer";
+  const officer = () => {
+    const n = $("officerName").value.trim();
+    if (n.length < 2) throw new Error("Enter the reviewing officer's name first.");
+    return n;
+  };
   const review = async (status) => {
     try {
       const edits = $("note").value.trim() && status === "approved" && $("note").value.trim().length <= 160 ? { sms: $("note").value.trim() } : {};
@@ -399,11 +393,11 @@ async function renderOfficer() {
   $("upForm").onsubmit = async (e) => { e.preventDefault(); $("runMsg").textContent = "Downscaling…"; try { const m = await api("/api/downscale", { method: "POST", body: new FormData(e.target) }); $("runMsg").textContent = `Issued ${m.issue_date}: ${m.n_gps} panchayats.`; await init(true); } catch (err) { $("runMsg").textContent = err.message; } };
   api("/api/nowcast").then((n) => {
     const names = Object.fromEntries((S.geoBlk?.features || []).map((f) => [String(f.properties.block_lgd), f.properties.block_name]));
-    $("nowcast").innerHTML = `<p>${esc(n.source)}</p><table class="data"><thead><tr><th>Block</th><th>Next 6 h (mm)</th><th>Max 15-min</th></tr></thead><tbody>
-      ${Object.entries(n.blocks || {}).map(([k, b]) => `<tr><td>${esc(names[k] || k)}</td><td>${num(b.mm_next_6h)}</td><td>${num(b.max_15min_mm)}</td></tr>`).join("")}</tbody></table>`;
+    $("nowcast").innerHTML = `<p>${esc(n.source)}</p><table class="data"><thead><tr><th>Block</th><th>Next ${num(Object.values(n.blocks)[0]?.hours, 0)} h (mm)</th><th>Max 15-min</th></tr></thead><tbody>
+      ${Object.entries(n.blocks || {}).map(([k, b]) => `<tr><td>${esc(names[k] || k)}</td><td>${num(b.mm_total)}${b.missing_steps ? " *" : ""}</td><td>${num(b.max_15min_mm)}</td></tr>`).join("")}</tbody></table>`;
   }).catch((e) => { $("nowcast").textContent = e.message; });
-  api("/api/outbox?limit=15").then((o) => { $("outbox").innerHTML = o.length ? `<table class="data"><tbody>${o.map((m) => `<tr><td>${esc(m.channel)}</td><td>${esc(m.gp_code)}</td><td style="text-align:left">${esc(m.message.slice(0, 90))}${m.message.length > 90 ? "…" : ""}</td><td>${m.segments}</td></tr>`).join("")}</tbody></table>` : "Empty."; }).catch(() => {});
-  api("/api/audit?limit=12").then((a) => { $("audit").innerHTML = a.length ? a.map((x) => `<div>${esc(x.ts_utc)} · ${esc(x.actor)} · ${esc(x.action)}</div>`).join("") : "Empty."; }).catch(() => {});
+  api("/api/outbox?limit=15").then((o) => { $("outbox").innerHTML = o.length ? `<table class="data"><tbody>${o.map((m) => `<tr><td>${esc(m.channel)}</td><td>${esc(m.gp_code)}</td><td style="text-align:left">${esc(m.message.slice(0, 90))}${m.message.length > 90 ? "…" : ""}</td><td>${m.segments}</td></tr>`).join("")}</tbody></table>` : "Empty."; }).catch((e) => { $("outbox").textContent = e.message; });
+  api("/api/audit?limit=12").then((a) => { $("audit").innerHTML = a.length ? a.map((x) => `<div>${esc(x.ts_utc)} · ${esc(x.actor)} · ${esc(x.action)}</div>`).join("") : "Empty."; }).catch((e) => { $("audit").textContent = e.message; });
 }
 
 /* ---------------------------------------------------------------- tabs, search, locate */
@@ -451,13 +445,41 @@ function setupLocate() {
   };
 }
 
+/* ---------------------------------------------------------------- controls built from /api/meta */
+function buildControls() {
+  // map layers
+  const layers = D().layers;
+  const saved = store.get("layer", "");
+  S.v = layers[saved] ? saved : Object.keys(layers)[0];
+  $("varSel").innerHTML = Object.entries(layers).map(([k, l]) => `<option value="${k}"${k === S.v ? " selected" : ""}>${esc(l.label)}</option>`).join("");
+  // bulletin languages
+  const langs = S.meta.languages, savedLang = store.get("lang", "");
+  S.lang = langs.includes(savedLang) ? savedLang : S.meta.default_language;
+  document.documentElement.lang = S.lang;
+  $("langSeg").innerHTML = langs.map((l) => `<button data-lang="${l}" aria-pressed="${l === S.lang}">${esc(D().language_names[l])}</button>`).join("");
+  $("langSeg").querySelectorAll("[data-lang]").forEach((b) => {
+    b.onclick = () => {
+      S.lang = b.dataset.lang; store.set("lang", S.lang);
+      $("langSeg").querySelectorAll("[data-lang]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+      document.documentElement.lang = S.lang; renderLegend();
+      if (S.sel) selectGp(S.sel, false);
+    };
+  });
+  // forecast horizon
+  const h = S.meta.live_lead_days;
+  $("leadRange").max = h.length;
+}
+
 /* ---------------------------------------------------------------- init */
 async function init(reloadIssues = false) {
   if (!reloadIssues) {
     try { S.meta = await api("/api/meta"); } catch (e) { banner(`API unavailable: ${e.message}`); return; }
-    $("appSub").textContent = `${S.meta.district} district · ${S.meta.boundaries?.modelled_gram_panchayats ?? ""} Gram Panchayats · ${S.meta.boundaries?.blocks ?? ""} blocks`;
+    const bq = S.meta.boundaries;
+    document.title = D().app_name; $("appTitle").textContent = D().app_name;
+    $("appSub").textContent = `${S.meta.district} district` + (bq ? ` · ${bq.modelled_gram_panchayats} Gram Panchayats · ${bq.blocks} blocks` : "");
+    buildControls();
     [S.geoGp, S.geoBlk, S.geoUrban] = await Promise.all([api("/api/geo/panchayats"), api("/api/geo/blocks"),
-      api("/api/geo/urban_areas").catch(() => null)]);
+      api("/api/geo/urban_areas")]);
     mapG = makeMap("mapG"); mapB = makeMap("mapB");
     const b = L.geoJSON(S.geoBlk).getBounds(); mapG.fitBounds(b); mapB.fitBounds(b);
     syncMaps(mapG, mapB); syncMaps(mapB, mapG);
@@ -477,18 +499,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const cur = document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     const nxt = cur === "dark" ? "light" : "dark"; document.documentElement.dataset.theme = nxt; store.set("theme", nxt);
   };
-  S.lang = store.get("lang", "mr");
-  document.querySelectorAll("[data-lang]").forEach((b) => {
-    b.setAttribute("aria-pressed", b.dataset.lang === S.lang);
-    b.onclick = () => {
-      S.lang = b.dataset.lang; store.set("lang", S.lang);
-      document.querySelectorAll("[data-lang]").forEach((x) => x.setAttribute("aria-pressed", x === b));
-      document.documentElement.lang = S.lang; renderLegend();
-      if (S.sel) selectGp(S.sel, false);
-    };
-  });
   $("leadRange").oninput = (e) => { S.lead = Number(e.target.value) - 1; updateLeadLabel(); restyle(); if (S.sel) selectGp(S.sel, false); };
-  $("varSel").onchange = (e) => { S.v = e.target.value; restyle(); };
+  $("varSel").onchange = (e) => { S.v = e.target.value; store.set("layer", S.v); restyle(); };
   const setView = (v) => {
     S.view = v; store.set("view", v);
     $("maps").classList.toggle("single", v === "single");

@@ -1,0 +1,18 @@
+# Project-wide settings. The active district can be overridden per process with AGROMET_CONFIG.
+active_district: config/district_pune.yaml
+
+# Network policy for every download (Open-Meteo, CHIRPS, Planetary Computer, ...).
+network:
+  user_agent: "gram-vani-agromet-downscaling/2.0 (research; contact via repository)"
+  timeout_s: 120                  # per request
+  download_timeout_s: 300         # per streamed file download
+  max_retries: 8                  # genuine failures (network / 5xx) before giving up
+  backoff_start_s: 5              # exponential back-off start, doubled per failure ...
+  backoff_max_s: 300              # ... capped here
+  rate_limit_minutely_wait_s: 65  # HTTP 429 "minutely" limit
+  rate_limit_hourly_wait_s: 600   # HTTP 429 "hourly" limit
+  rate_limit_max_wait_s: 3900     # total budget for short rate-limit waits within one request
+  daily_quota_wait_s: 1800        # long archive downloads: wait this long when the daily quota is exhausted
+  node_retry_wait_s: 300          # long archive downloads: wait after a transient node failure ...
+  node_max_retries: 6             # ... up to this many times
+  download_attempts: 5

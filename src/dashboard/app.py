@@ -173,17 +173,24 @@ def health():
 
 @app.get("/api/meta")
 def meta():
+    """Everything the page needs to render: district, horizons, languages, map layers, colours."""
     ev_path = cfg.paths.reports / "evaluation.json"
     ev = json.loads(ev_path.read_text(encoding="utf-8")) if ev_path.exists() else {}
     bq = cfg.paths.reports / "boundary_qa.json"
     from src.advisory.crop_calendar import all_crops
 
-    return _clean({"district": cfg.district_name, "district_mr": cfg["district"].get("name_mr"),
-                   "state": cfg["district"]["state"], "languages": cfg["operational"]["languages"],
-                   "lead_days": cfg.lead_days, "boundaries": json.loads(bq.read_text()) if bq.exists() else None,
+    d = cfg["district"]
+    return _clean({"district": cfg.district_name,
+                   "district_names": {"en": cfg.district_name, **{k[5:]: v for k, v in d.items() if k.startswith("name_")}},
+                   "state": d["state"], "languages": cfg["operational"]["languages"],
+                   "default_language": cfg["operational"]["default_language"],
+                   "lead_days": cfg.lead_days, "live_lead_days": cfg.live_lead_days,
+                   "boundaries": json.loads(bq.read_text()) if bq.exists() else None,
                    "headline": ev.get("headline"), "forecast_model": cfg["forecast"]["model"],
+                   "forecast_label": cfg["forecast"]["label"],
                    "truth": cfg["ground_truth"], "crops": all_crops(cfg),
-                   "severity_colors": cfg.advisory["severity_colors"], "issues": _issues()[:60]})
+                   "severity_colors": cfg.advisory["severity_colors"],
+                   "dashboard": cfg.dashboard, "issues": _issues()})
 
 
 @app.get("/api/evaluation")
@@ -193,19 +200,16 @@ def evaluation():
 
 @app.get("/api/evaluation/summary")
 def evaluation_summary():
+    """What the Scorecard shows: forecast-mode skill on unseen GPs over the test period."""
     ev = _json_file(cfg.paths.reports / "evaluation.json", "evaluation")
-    out = {"headline": ev.get("headline"), "validation_design": ev.get("validation_design"), "variables": {}}
-    for v, d in ev.get("variables", {}).items():
-        un = d.get("unseen_gp", {})
-        out["variables"][v] = {"overall": un.get("overall"), "by_lead": un.get("by_lead"),
-                               "headline": d.get("headline"), "intervals": d.get("intervals", {}).get("unseen_gp")}
-        if v == "rain":
-            out["variables"][v]["categorical"] = d.get("categorical", {}).get("unseen_gp")
-            out["variables"][v]["probabilistic"] = d.get("probabilistic")
-    out["leave_one_block_out"] = {v: {k: x for k, x in r.items() if k != "folds"} | {"folds": r.get("folds")}
-                                  for v, r in ev.get("leave_one_block_out", {}).items()}
-    out["imd_independent_check"] = ev.get("imd_independent_check")
-    out["truth_qa"] = ev.get("truth_qa")
+    gt = cfg["ground_truth"]
+    out = {"headline": ev["headline"], "validation_design": ev["validation_design"],
+           "test_period": [cfg["validation"]["test_start"], cfg["period"]["end"]],
+           "tested_leads": cfg.lead_days, "forecast_model": cfg["forecast"]["model"],
+           "truth_labels": [gt["rainfall"]["label"], gt["temperature_humidity_wind"]["label"]],
+           "variables": {}}
+    for v, dv in ev["variables"].items():
+        out["variables"][v] = {"by_lead": dv["unseen_gp"]["by_lead"]}
     return out
 
 
@@ -330,7 +334,7 @@ def locate(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-1
         d = g.to_crs(cfg.metric_crs).distance(
             __import__("geopandas").GeoSeries([Point(lon, lat)], crs=4326).to_crs(cfg.metric_crs).iloc[0])
         k = int(d.idxmin())
-        if d.iloc[k] > 5000:
+        if d.iloc[k] > cfg.dashboard["locate_max_distance_m"]:
             raise HTTPException(404, "location is outside the modelled panchayats")
         hit = g.iloc[[k]]
     r = hit.iloc[0]
@@ -437,7 +441,7 @@ def run_pipeline(source: str = Query("live", pattern="^(live|archive)$"), issue_
                  actor: str = Depends(admin)):
     from src.pipeline.predict import BlockForecastError, run
 
-    d = date.fromisoformat(issue_date) if issue_date else date.today()
+    d = date.fromisoformat(issue_date) if issue_date else cfg.today()
     try:
         res = run(cfg, d, source)
     except BlockForecastError as exc:
@@ -472,13 +476,13 @@ def csv_template():
     b = load_blocks(cfg, modelled_only=True)
     lines = ["block_lgd,block_name,lead_day,rain,tmax,tmin,rh,wind"]
     for r in b.itertuples():
-        for k in cfg.lead_days:
-            lines.append(f"{r.block_lgd},{r.block_name},{k},0.0,32.0,21.0,65,12")
+        for k in cfg.lead_days:  # values left empty: the officer enters the official block forecast
+            lines.append(f"{r.block_lgd},{r.block_name},{k},,,,,")
     return "\n".join(lines)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run("src.dashboard.app:app", host="127.0.0.1", port=8080)
+    uvicorn.run("src.dashboard.app:app", host=cfg.dashboard["server"]["host"], port=int(cfg.dashboard["server"]["port"]))
     _ = (np, timedelta)

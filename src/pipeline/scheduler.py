@@ -9,7 +9,7 @@ Windows Task Scheduler / cron:
 
 Each check:
 1. does nothing if today's live issue already exists, or it is earlier than
-   ``operational.refresh_hour_ist`` (the 00 UTC ECMWF run is on Open-Meteo by ~05:30 IST);
+   ``operational.refresh_hour_local`` in the district's timezone;
 2. refreshes preliminary CHIRPS (for the antecedent-rain feature; failures are non-fatal);
 3. fetches the live ECMWF IFS forecast and runs the downscaler (``predict.run(source="live")``),
    which also publishes the issue to the dashboard.
@@ -23,13 +23,12 @@ import argparse
 import json
 import threading
 import time
-from datetime import date, datetime
+from datetime import date
 
 from src.common.config import Config, load_config
 from src.common.logging_utils import get_logger
 
 log = get_logger("pipeline.scheduler")
-CHECK_EVERY_S = 15 * 60
 _lock = threading.Lock()
 
 
@@ -43,12 +42,26 @@ def has_live_issue(cfg: Config, day: date) -> bool:
         return False
 
 
+def refresh_ndvi_if_stale(cfg: Config, today: date) -> bool:
+    import pandas as pd
+
+    p = cfg.paths.interim / "gp_ndvi.parquet"
+    newest = pd.read_parquet(p, columns=["available_date"])["available_date"].max().date() if p.exists() else None
+    if newest is not None and (today - newest).days <= int(cfg["ndvi"]["refresh_when_older_than_days"]):
+        return False
+    from src.ingest import ndvi
+
+    log.info("NDVI newest usable composite %s is stale: refreshing", newest)
+    ndvi.build(cfg)
+    return True
+
+
 def refresh_if_due(cfg: Config, force: bool = False) -> str:
     """Returns 'exists', 'too_early', 'issued' or 'failed: <reason>'."""
-    today = date.today()
+    today = cfg.today()
     if not force and has_live_issue(cfg, today):
         return "exists"
-    if not force and datetime.now().hour < int(cfg["operational"].get("refresh_hour_ist", 6)):
+    if not force and cfg.now().hour < int(cfg["operational"]["refresh_hour_local"]):
         return "too_early"
     if not _lock.acquire(blocking=False):
         return "running"
@@ -57,8 +70,12 @@ def refresh_if_due(cfg: Config, force: bool = False) -> str:
             from src.ingest.chirps import update_prelim
 
             update_prelim(cfg)
-        except Exception as exc:  # noqa: BLE001 - antecedent rain is optional at inference
-            log.warning("CHIRPS prelim refresh skipped: %s", exc)
+        except Exception as exc:  # noqa: BLE001 - reported via the issue's input_completeness
+            log.warning("CHIRPS prelim refresh failed: %s", exc)
+        try:
+            refresh_ndvi_if_stale(cfg, today)
+        except Exception as exc:  # noqa: BLE001 - reported via the issue's input_completeness
+            log.warning("NDVI refresh failed: %s", exc)
         from src.pipeline.predict import run
 
         meta = run(cfg, today, "live")["meta"]
@@ -82,7 +99,7 @@ def start_background(cfg: Config, on_issue=None) -> threading.Thread:
         while True:
             if refresh_if_due(cfg) == "issued" and on_issue:
                 on_issue()
-            time.sleep(CHECK_EVERY_S)
+            time.sleep(60 * int(cfg["operational"]["refresh_check_minutes"]))
 
     t = threading.Thread(target=loop, name="live-refresh", daemon=True)
     t.start()

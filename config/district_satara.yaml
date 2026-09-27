@@ -52,6 +52,7 @@ validation:
 forecast:
   provider: open_meteo_previous_runs
   model: ecmwf_ifs025           # ECMWF IFS open data, 0.25° (~27 km) — the coarse NWP
+  label: "ECMWF IFS 0.25°"
   grid_resolution_deg: 0.25
   lead_days: [1, 2, 3, 4, 5]
   timezone: "Asia/Kolkata"
@@ -59,13 +60,18 @@ forecast:
 ground_truth:
   rainfall:
     source: chirps_v2_daily_p05  # 0.05° gauge-blended satellite rainfall (CHC/UCSB)
+    label: "satellite rainfall (CHIRPS)"
     resolution_deg: 0.05
+    prelim_latency_days: 2       # CHIRPS-prelim appears ~2 days after the fact
   temperature_humidity_wind:
     source: era5_land            # 0.1° land reanalysis via Open-Meteo archive
+    label: "ERA5 reanalysis weather"
     resolution_deg: 0.1
   independent_validation:
     - imd_gridded_rain_025       # IMD 0.25° gauge-only gridded rainfall (never used in training)
     - user_station_csv           # real AWS/rain-gauge CSVs dropped into data/raw/stations/
+  stations:
+    day_convention: calendar     # "imd0830": station day ends 08:30 IST (shifted one day back); "calendar": 00-24 local
 
 static:
   dem: copernicus_glo30          # Copernicus DEM GLO-30 (30 m), AWS open data
@@ -77,12 +83,26 @@ static:
   # Western Ghats crest search window (longitude) used to trace the crest line
   ghat_crest_search_lon: [73.55, 73.95]
 
+ndvi:
+  latency_days: 8                # a MODIS 16-day composite is usable this long after its period ends
+  asof_tolerance_days: 40        # oldest composite accepted as "current" for an issue date
+  search_lookback_days: 40       # STAC search starts this long before period.start
+  refresh_when_older_than_days: 20  # daily job re-fetches NDVI when the newest usable composite is older than this
+
+nowcast:
+  steps_15min: 24                # Open-Meteo minutely_15 steps (24 = next 6 h)
+
 operational:
   # Live forecast: regular Open-Meteo forecast API with the same model
   live_forecast_model: ecmwf_ifs025
-  # Operational horizon: today (0) + 7 days. The model was trained and validated on leads 1-5;
-  # day 0 and days 6-7 are downscaled with the same model and flagged as outside the validated range.
+  # Operational horizon: today (0) + 7 days. The model was trained and validated on leads 1-5
+  # (forecast.lead_days); day 0 and days 6-7 are downscaled with the same model and flagged as
+  # outside the validated range. Advisories use the validated leads only.
   live_lead_days: [0, 1, 2, 3, 4, 5, 6, 7]
-  refresh_hour_ist: 6              # the dashboard server re-issues the live forecast daily after this hour
+  refresh_hour_local: 6            # ECMWF 00 UTC run is on Open-Meteo by ~05:30 IST; re-issue daily after this hour
+  refresh_check_minutes: 15        # how often the server checks whether today's forecast exists
+  history_backfill_days: 3         # previous issues needed for fc_rain_ante3 (lead-1 forecasts of issue-3..issue-1)
+  antecedent_carry_forward_days: 10  # CHIRPS-prelim lag tolerance for ante_obs7_lag3 at inference
+  input_gap_tolerance: 0.10        # flag an input only when its coverage is this far below the seasonal norm
   default_language: mr
   languages: [mr, en, hi]

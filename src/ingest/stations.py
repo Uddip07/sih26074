@@ -44,7 +44,7 @@ def load(cfg: Config | None = None) -> pd.DataFrame | None:
         frames.append(df)
     df = pd.concat(frames, ignore_index=True)
     df["date"] = pd.to_datetime(df["date"])
-    if (cfg.get("ground_truth.stations.day_convention") or "") == "imd0830":
+    if cfg["ground_truth"]["stations"]["day_convention"] == "imd0830":
         df["date"] = df["date"] - pd.Timedelta(days=1)
     for c in ("rain_mm", "tmax_c", "tmin_c", "rh_pct"):
         if c in df:

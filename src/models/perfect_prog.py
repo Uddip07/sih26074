@@ -57,7 +57,7 @@ def build_frame(cfg: Config) -> pd.DataFrame:
     blk["issue_date"] = blk["valid_date"]
     blk["lead_day"] = 0
     blk = blk[blk["block_lgd"].isin(static["block_lgd"].unique())]
-    fc = forecast_context(blk)  # fc_rain_ante3 is NaN in PP mode (no lead-1 forecasts)
+    fc = forecast_context(blk, cfg.lead_days)  # fc_rain_ante3 is NaN in PP mode (no lead-1 forecasts)
     df = add_season(expand_to_gps(fc, static[["gp_code", "block_lgd"]]))
     truth = _truth(cfg)
     df = add_antecedent(df, truth[["gp_code", "valid_date", "rain_obs"]])

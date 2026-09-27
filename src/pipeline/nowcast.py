@@ -7,7 +7,7 @@ Day-0 short-range precipitation layer (feature F30).
 
 Radar (IMD Doppler mosaics) and INSAT-3D/3DR rainfall estimates are the operational nowcast
 sources, but they require MOSDAC / IMD credentials. ``RADAR_ADAPTER`` documents where such a
-feed plugs in: any callable returning ``{block_lgd: mm_next_6h}`` can replace ``_nwp_nowcast``.
+feed plugs in: any callable returning ``{block_lgd: {"mm_total": ...}}`` can replace ``_nwp_nowcast``.
 
 Results are cached for 15 minutes to respect the API quota.
 """
@@ -34,16 +34,18 @@ def _nwp_nowcast(cfg: Config) -> dict:
     js = get_json(URL, params={
         "latitude": ",".join(f"{x:.4f}" for x in pts["latitude"]),
         "longitude": ",".join(f"{x:.4f}" for x in pts["longitude"]),
-        "minutely_15": "precipitation", "forecast_minutely_15": 24, "timezone": cfg["forecast"]["timezone"],
+        "minutely_15": "precipitation", "forecast_minutely_15": int(cfg["nowcast"]["steps_15min"]), "timezone": cfg["forecast"]["timezone"],
     })
     js = js if isinstance(js, list) else [js]
     blocks = {}
     for (_, p), res in zip(pts.iterrows(), js):
-        m = res.get("minutely_15", {})
-        vals = [v or 0.0 for v in m.get("precipitation", [])]
+        m = res["minutely_15"]
+        raw = m["precipitation"]
+        vals = [v for v in raw if v is not None]  # missing steps stay missing, never 0 mm
         blocks[str(int(p["block_lgd"]))] = {
-            "mm_next_6h": round(sum(vals), 1), "max_15min_mm": round(max(vals) if vals else 0.0, 1),
-            "times": m.get("time", []), "series_mm": [round(v, 2) for v in vals]}
+            "mm_total": round(sum(vals), 1) if vals else None, "max_15min_mm": round(max(vals), 1) if vals else None,
+            "hours": len(raw) / 4, "missing_steps": len(raw) - len(vals),
+            "times": m["time"], "series_mm": [None if v is None else round(v, 2) for v in raw]}
     return blocks
 
 

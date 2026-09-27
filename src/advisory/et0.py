@@ -14,8 +14,6 @@ from __future__ import annotations
 
 import numpy as np
 
-GUST_TO_MEAN = 0.55  # typical ratio of daily-mean to daily-max 10 m wind over land (Pune AWS climatology)
-
 
 def extraterrestrial_radiation(lat_deg: np.ndarray, doy: np.ndarray) -> np.ndarray:
     """Ra in MJ m-2 day-1 (FAO-56 eq. 21)."""
@@ -26,7 +24,8 @@ def extraterrestrial_radiation(lat_deg: np.ndarray, doy: np.ndarray) -> np.ndarr
     return (24 * 60 / np.pi) * 0.0820 * dr * (ws * np.sin(phi) * np.sin(delta) + np.cos(phi) * np.cos(delta) * np.sin(ws))
 
 
-def et0_fao56(tmax, tmin, rh_mean, wind10_max_kmh, lat_deg, elev_m, doy, krs: float = 0.16) -> np.ndarray:
+def et0_fao56(tmax, tmin, rh_mean, wind10_max_kmh, lat_deg, elev_m, doy, krs: float, gust_to_mean: float) -> np.ndarray:
+    """``krs`` and ``gust_to_mean`` come from ``config/advisory_rules.yaml`` (section et0)."""
     tmax, tmin = np.asarray(tmax, float), np.asarray(tmin, float)
     tmean = (tmax + tmin) / 2
     P = 101.3 * ((293 - 0.0065 * np.asarray(elev_m, float)) / 293) ** 5.26
@@ -44,7 +43,7 @@ def et0_fao56(tmax, tmin, rh_mean, wind10_max_kmh, lat_deg, elev_m, doy, krs: fl
     Rnl = sigma * (((tmax + 273.16) ** 4 + (tmin + 273.16) ** 4) / 2) * (0.34 - 0.14 * np.sqrt(ea)) * \
         (1.35 * np.clip(Rs / np.maximum(Rso, 1e-6), 0.25, 1.0) - 0.35)
     Rn = Rns - Rnl
-    u10 = np.asarray(wind10_max_kmh, float) / 3.6 * GUST_TO_MEAN
+    u10 = np.asarray(wind10_max_kmh, float) / 3.6 * gust_to_mean
     u2 = u10 * 4.87 / np.log(67.8 * 10 - 5.42)
     et0 = (0.408 * delta * Rn + gamma * 900 / (tmean + 273) * u2 * (es - ea)) / (delta + gamma * (1 + 0.34 * u2))
     return np.clip(et0, 0, None)

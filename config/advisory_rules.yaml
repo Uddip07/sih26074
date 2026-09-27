@@ -7,10 +7,17 @@
 # =============================================================================
 
 severity_colors:
-  green:  {hex: "#2E7D32", pantone: "PMS 7740 C", label_en: "No warning",  label_mr: "इशारा नाही",  label_hi: "कोई चेतावनी नहीं"}
-  yellow: {hex: "#F9C80E", pantone: "PMS 7404 C", label_en: "Be aware",    label_mr: "सतर्क राहा",   label_hi: "सतर्क रहें"}
-  orange: {hex: "#E8720C", pantone: "PMS 1585 C", label_en: "Be prepared", label_mr: "तयार राहा",    label_hi: "तैयार रहें"}
-  red:    {hex: "#9B2423", pantone: "PMS 7621 C", label_en: "Take action", label_mr: "कृती करा",     label_hi: "कार्रवाई करें"}
+  green:  {icon: "✓", hex: "#2E7D32", pantone: "PMS 7740 C", label_en: "No warning",  label_mr: "इशारा नाही",  label_hi: "कोई चेतावनी नहीं"}
+  yellow: {icon: "!", hex: "#F9C80E", pantone: "PMS 7404 C", label_en: "Be aware",    label_mr: "सतर्क राहा",   label_hi: "सतर्क रहें"}
+  orange: {icon: "⚠", hex: "#E8720C", pantone: "PMS 1585 C", label_en: "Be prepared", label_mr: "तयार राहा",    label_hi: "तैयार रहें"}
+  red:    {icon: "⛔", hex: "#9B2423", pantone: "PMS 7621 C", label_en: "Take action", label_mr: "कृती करा",     label_hi: "कार्रवाई करें"}
+
+# Rain-exceedance probabilities used by the rules. Each value must be one of the model's
+# exceedance_thresholds (config/model.yaml, rain); the probability column is rain_p_ge_<mm>.
+probability_thresholds_mm:
+  light: 2.5
+  moderate: 15.6
+  heavy: 64.5
 
 rules:
   heavy_rain:
@@ -25,19 +32,25 @@ rules:
     flat_slope_deg: 3.0
     clay_pct: 40.0
     trigger_3day_mm: 50.0
+    window_days: 3
+    orange_multiplier: 2.0      # orange when window rain >= multiplier x trigger
   dry_spell_irrigation:
     rain_3day_mm: 2.5           # spec rule 1
+    window_days: 3
+    effective_rain_fraction: 0.8  # FAO: share of forecast rain that counts against crop water need
     max_prob_2p5: 0.40          # and the model is fairly sure it stays dry
     sensitive_stages: [sowing, vegetative, flowering, fruit_development]
   sowing_window:
     months: [6, 7]
     cumulative_mm: 65.0         # agronomic rule: sow kharif after 65-75 mm cumulative rain
+    window_days: 3              # forecast days added to the observed 7-day antecedent rain
   spray_window:
     max_rain_mm: 1.0
     max_prob_2p5: 0.30
     max_wind_kmh: 15.0
   fertiliser:
     avoid_if_rain_48h_mm: 15.6  # moderate rain leaches / washes off top-dressing
+    window_days: 2
   heat:
     yellow_tmax: 40.0
     orange_tmax: 42.0
@@ -47,11 +60,13 @@ rules:
     orange_tmin: 7.0
     red_tmin: 4.0               # ground-frost risk (spec rule 4 used 5 °C)
     valley_tpi_2km: -10.0       # valley bottoms pool cold air: raise one level
+    frost_margin_c: 2.0         # "frost" wording when Tmin <= red_tmin + margin
   thunderstorm:
     months: [3, 4, 5, 10, 11]
     min_prob_15p6: 0.30
     min_tmax: 32.0
     min_rh: 50.0
+    orange_prob_15p6: 0.60
   wind:
     yellow_kmh: 30.0
     orange_kmh: 40.0            # spec rule 5
@@ -62,6 +77,22 @@ rules:
   harvest:
     dry_days_needed: 3
     rain_mm: 2.5
+
+# Overall IMD-style warning level: rules (or rule categories) that are advice, not weather warnings
+overall_level:
+  exclude_categories: [disease]
+  exclude_rules: [spray_window, harvest, sowing_window]
+
+# FAO-56 reference ET0 from forecast variables (src/advisory/et0.py)
+et0:
+  krs: 0.16                     # Hargreaves radiation coefficient: 0.16 interior, 0.19 coastal
+  gust_to_mean: 0.55            # daily-mean / daily-max 10 m wind ratio over land
+
+# Bulletin weather summary wording (IMD 24-h rain categories)
+summary:
+  rain_day_mm: 2.5              # a "rainy day"
+  moderate_mm: 15.6
+  heavy_mm: 64.5
 
 sms:
   max_chars_unicode: 160        # one Unicode SMS segment is 70 chars; we allow <=160 (3 segments)

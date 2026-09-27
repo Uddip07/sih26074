@@ -26,7 +26,6 @@ from src.common.config import Config, load_config
 from src.common.logging_utils import get_logger
 
 log = get_logger("pipeline.publish")
-SIMPLIFY_M = 60.0
 
 
 def publish_geometry(cfg: Config | None = None, force: bool = False) -> None:
@@ -51,7 +50,8 @@ def publish_geometry(cfg: Config | None = None, force: bool = False) -> None:
         ("non_gp_areas", gpd.read_parquet(it / "non_gp_areas.parquet"), ["lgd_block_name", "area_km2"]),
     ]:
         g = gdf[[c for c in cols if c in gdf] + ["geometry"]].copy()
-        g["geometry"] = g.to_crs(cfg.metric_crs).geometry.simplify(SIMPLIFY_M, preserve_topology=True).to_crs(4326)
+        g["geometry"] = g.to_crs(cfg.metric_crs).geometry.simplify(cfg.dashboard["geometry"]["simplify_m"],
+                                                                   preserve_topology=True).to_crs(4326)
         for c in g.columns:
             if g[c].dtype.kind == "f":
                 g[c] = g[c].round(2)
@@ -72,8 +72,8 @@ def urban_areas(cfg: Config, gps: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     parts = blocks[["block_name", "block_lgd", "geometry"]].copy()
     parts["geometry"] = parts.geometry.difference(gp_union)
     parts = parts[~parts.geometry.is_empty].explode(index_parts=False)
-    parts = parts[parts.geometry.area > 0.1e6]  # drop digitising slivers (< 0.1 km²)
-    parts["geometry"] = parts.geometry.simplify(SIMPLIFY_M, preserve_topology=True)
+    parts = parts[parts.geometry.area > cfg.dashboard["geometry"]["min_area_km2"] * 1e6]  # digitising slivers
+    parts["geometry"] = parts.geometry.simplify(cfg.dashboard["geometry"]["simplify_m"], preserve_topology=True)
     parts["area_km2"] = (parts.geometry.area / 1e6).round(2)
     log.info("urban / non-GP areas: %d polygons, %.0f km²", len(parts), parts["area_km2"].sum())
     return parts.to_crs(4326).reset_index(drop=True)
@@ -99,10 +99,10 @@ def publish_issue(cfg: Config | None = None, issue: date | None = None) -> None:
                "valid_dates": sorted(str(x.date()) for x in gp["valid_date"].unique()), "gp": {}, "blocks": {}}
     for code, g in gp.groupby("gp_code"):
         rec = {k: _arr(g[c]) for k, c in fields.items() if c in g}
-        a = adv.get(code, {})
-        rec["sev"] = a.get("overall", "green")
-        rec["n_adv"] = sum(1 for x in a.get("advisories", []) if x["severity"] != "green")
-        rec["rules"] = sorted({x["rule"].split(":")[0] for x in a.get("advisories", []) if x["severity"] != "green"})
+        a = adv[code]  # every downscaled GP has an advisory record; a gap is a pipeline error
+        rec["sev"] = a["overall"]
+        rec["n_adv"] = sum(1 for x in a["advisories"] if x["severity"] != "green")
+        rec["rules"] = sorted({x["rule"].split(":")[0] for x in a["advisories"] if x["severity"] != "green"})
         if shap_cols:
             rec["shap_rain"] = {c.replace("shap_rain_", ""): _arr(g[c]) for c in shap_cols}
         payload["gp"][code] = rec

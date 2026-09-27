@@ -64,13 +64,14 @@ def _truth(cfg: Config) -> pd.DataFrame:
 # Shared feature builders: used identically by training (build_dataset) and inference
 # (src/pipeline/predict.py), so there is no train/serve skew.
 # ---------------------------------------------------------------------------------------------
-def forecast_context(fc: pd.DataFrame) -> pd.DataFrame:
+def forecast_context(fc: pd.DataFrame, issue_sum_leads: list[int]) -> pd.DataFrame:
     """Block-level context features. ``fc`` must hold fc_* columns and, for fc_rain_ante3, the
     lead-1 forecasts of the preceding issues (rows of past issue dates)."""
     fc = fc.copy()
     fc["fc_rain_log1p"] = np.log1p(fc["fc_rain"].clip(lower=0))
-    # 5-day (leads 1-5) issue total, as in training, even when the operational horizon is longer
-    r15 = fc["fc_rain"].where(fc["lead_day"].between(1, 5), 0.0)
+    # issue total over the validated leads (forecast.lead_days), as in training, even when the
+    # operational horizon is longer
+    r15 = fc["fc_rain"].where(fc["lead_day"].isin(issue_sum_leads), 0.0)
     fc["fc_rain_issue_sum"] = r15.groupby([fc["block_lgd"], fc["issue_date"]]).transform("sum")
     lead1 = fc[fc["lead_day"] == 1][["block_lgd", "valid_date", "fc_rain"]].rename(columns={"fc_rain": "r"})
     if lead1.empty:
@@ -110,16 +111,34 @@ def add_antecedent(df: pd.DataFrame, rain_obs: pd.DataFrame, carry_forward_days:
     return df.merge(ante, on=["gp_code", "issue_date"], how="left")
 
 
+TIME_VARYING_INPUTS = ("fc_rain_ante3", "ante_obs7_lag3", "ndvi")
+
+
+def write_input_coverage(cfg: Config, df: pd.DataFrame | None = None) -> dict:
+    """Share of rows with each time-varying input available, per calendar month, in the training
+    dataset. Operations compare an issue's input completeness against this seasonal norm (e.g. NDVI
+    is naturally sparse under monsoon cloud) so only genuine data gaps are flagged."""
+    import json
+
+    if df is None:
+        df = pd.read_parquet(cfg.paths.processed / "dataset.parquet", columns=["valid_date", *TIME_VARYING_INPUTS])
+    m = df["valid_date"].dt.month
+    cov = {f: {int(k): round(float(v), 3) for k, v in df[f].notna().groupby(m).mean().items()} for f in TIME_VARYING_INPUTS}
+    out = cfg.paths.reports / "input_coverage_by_month.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(cov, indent=1), encoding="utf-8")
+    return cov
+
+
 def add_ndvi(df: pd.DataFrame, cfg: Config) -> pd.DataFrame:
     ndvi_path = cfg.paths.interim / "gp_ndvi.parquet"
-    if ndvi_path.exists():
-        from src.ingest.ndvi import ndvi_for_issue_dates
+    if not ndvi_path.exists():
+        raise FileNotFoundError(f"{ndvi_path} missing - run the ndvi stage (python -m src.pipeline.run --only ndvi)")
+    from src.ingest.ndvi import ndvi_for_issue_dates
 
-        ndvi = pd.read_parquet(ndvi_path)
-        ndvi["gp_code"] = ndvi["gp_code"].astype(str)
-        df["ndvi"] = ndvi_for_issue_dates(ndvi, df)
-    else:
-        log.warning("gp_ndvi.parquet missing - NDVI feature excluded")
+    ndvi = pd.read_parquet(ndvi_path)
+    ndvi["gp_code"] = ndvi["gp_code"].astype(str)
+    df["ndvi"] = ndvi_for_issue_dates(ndvi, df, cfg["ndvi"]["asof_tolerance_days"])
     return df
 
 
@@ -136,7 +155,7 @@ def build_dataset(cfg: Config | None = None) -> pd.DataFrame:
     fc = pd.read_parquet(it / "block_forecasts.parquet")
     fc = fc.rename(columns={v: f"fc_{v}" for v in FC_VARS})
     fc = fc[fc["block_lgd"].isin(static["block_lgd"].unique())]
-    fc = forecast_context(fc)
+    fc = forecast_context(fc, cfg.lead_days)
     df = add_season(expand_to_gps(fc, static))
     truth = _truth(cfg)
     df = add_antecedent(df, truth[["gp_code", "valid_date", "rain_obs"]])
@@ -150,6 +169,7 @@ def build_dataset(cfg: Config | None = None) -> pd.DataFrame:
     out = cfg.paths.processed / "dataset.parquet"
     out.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(out, index=False)
+    write_input_coverage(cfg, df)
 
     tgt = [c for c in ["rain_obs", "tmax_obs", "tmin_obs", "rh_obs", "wind_obs"] if c in df]
     summary = {

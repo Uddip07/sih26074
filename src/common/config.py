@@ -8,7 +8,9 @@ officers can edit thresholds without touching code.
 The active district config is chosen by (highest priority first):
 1. an explicit ``path`` argument,
 2. the ``AGROMET_CONFIG`` environment variable,
-3. ``config/district_pune.yaml``.
+3. ``active_district`` in ``config/settings.yaml``.
+
+Every YAML is read strictly: a missing file or a missing key is an error, never a silent default.
 """
 
 from __future__ import annotations
@@ -23,14 +25,27 @@ import yaml
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_DIR = PROJECT_ROOT / "config"
-DEFAULT_DISTRICT_CONFIG = CONFIG_DIR / "district_pune.yaml"
+SETTINGS_FILE = CONFIG_DIR / "settings.yaml"
+
+
+class ConfigError(RuntimeError):
+    pass
 
 
 def _read_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
-        return {}
+        raise ConfigError(f"configuration file not found: {path}")
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f) or {}
+        data = yaml.safe_load(f)
+    if not isinstance(data, dict) or not data:
+        raise ConfigError(f"configuration file is empty or not a mapping: {path}")
+    return data
+
+
+def active_district_path() -> Path:
+    """District config chosen by AGROMET_CONFIG, else ``active_district`` in config/settings.yaml."""
+    p = os.environ.get("AGROMET_CONFIG") or _read_yaml(SETTINGS_FILE)["active_district"]
+    return Path(p)
 
 
 @dataclass(frozen=True)
@@ -96,26 +111,28 @@ class Config:
     """Read-only view over the district YAML plus the shared model/advisory YAMLs."""
 
     def __init__(self, district_path: Path | str | None = None):
-        path = Path(district_path or os.environ.get("AGROMET_CONFIG") or DEFAULT_DISTRICT_CONFIG)
+        path = Path(district_path) if district_path else active_district_path()
         if not path.is_absolute():
             path = PROJECT_ROOT / path
         self.path = path
         self.raw: dict[str, Any] = _read_yaml(path)
         self.model: dict[str, Any] = _read_yaml(CONFIG_DIR / "model.yaml")
         self.advisory: dict[str, Any] = _read_yaml(CONFIG_DIR / "advisory_rules.yaml")
-        crop_file = CONFIG_DIR / f"crop_calendar_{self.key}.yaml"
-        self.crops: dict[str, Any] = _read_yaml(crop_file) if crop_file.exists() else {}
+        self.diseases: dict[str, Any] = _read_yaml(CONFIG_DIR / "disease_models.yaml")
+        self.dashboard: dict[str, Any] = _read_yaml(CONFIG_DIR / "dashboard.yaml")
+        self.crops: dict[str, Any] = _read_yaml(CONFIG_DIR / f"crop_calendar_{self.key}.yaml")
         self.paths = Paths(PROJECT_ROOT, self.key)
 
     # -- convenience accessors -------------------------------------------------
     def __getitem__(self, item: str) -> Any:
         return self.raw[item]
 
-    def get(self, dotted: str, default: Any = None) -> Any:
+    def get(self, dotted: str) -> Any:
+        """Dotted lookup (``"forecast.timezone"``); a missing key is an error."""
         node: Any = self.raw
         for part in dotted.split("."):
             if not isinstance(node, dict) or part not in node:
-                return default
+                raise KeyError(f"'{dotted}' missing from {self.path.name}")
             node = node[part]
         return node
 
@@ -143,7 +160,24 @@ class Config:
     @property
     def live_lead_days(self) -> list[int]:
         """Operational horizon (may extend beyond the validated ``lead_days``)."""
-        return list(self.raw.get("operational", {}).get("live_lead_days", self.lead_days))
+        return list(self.raw["operational"]["live_lead_days"])
+
+    @property
+    def timezone(self) -> str:
+        return self.raw["forecast"]["timezone"]
+
+    def today(self):
+        """Current date in the district's timezone (not the server clock's)."""
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo(self.timezone)).date()
+
+    def now(self):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        return datetime.now(ZoneInfo(self.timezone))
 
     def resolve(self, relative: str) -> Path:
         p = Path(relative)

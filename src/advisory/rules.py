@@ -59,10 +59,15 @@ def _col(fc: pd.DataFrame, name: str, default=np.nan) -> np.ndarray:
     return fc[name].to_numpy(dtype=float) if name in fc else np.full(len(fc), default)
 
 
+def prob_col(mm: float) -> str:
+    """Column holding P(rain >= mm), e.g. 64.5 -> rain_p_ge_64p5 (as written by the downscaler)."""
+    return "rain_p_ge_" + f"{mm:g}".replace(".", "p")
+
+
 def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
              crops: list[CropStage] | None = None, ante_obs7: float | None = None) -> list[Advisory]:
     """
-    ``fc``: 5 rows (lead 1..5) with rain_pred, tmax_pred, tmin_pred, rh_pred, wind_pred and, if
+    ``fc``: one row per validated lead day (``forecast.lead_days``) with rain_pred, tmax_pred, tmin_pred, rh_pred, wind_pred and, if
     available, rain_q10/q90 and rain_p_ge_2p5 / _15p6 / _64p5.
     ``gp``: dict with block_name, latitude, elev_mean, slope_mean, soil_clay_pct, tpi_2km.
     """
@@ -73,9 +78,17 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
     rain = np.clip(_col(fc, "rain_pred"), 0, None)
     tmax, tmin = _col(fc, "tmax_pred"), _col(fc, "tmin_pred")
     rh, wind = _col(fc, "rh_pred"), _col(fc, "wind_pred")
-    p25, p156, p645 = _col(fc, "rain_p_ge_2p5"), _col(fc, "rain_p_ge_15p6"), _col(fc, "rain_p_ge_64p5")
-    rain3 = float(np.nansum(rain[:3]))
-    rain2 = float(np.nansum(rain[:2]))
+    PT = cfg.advisory["probability_thresholds_mm"]
+    model_thr = set(cfg.model["variables"]["rain"]["exceedance_thresholds"])
+    if not set(PT.values()) <= model_thr:
+        raise ValueError(f"probability_thresholds_mm {PT} must be among the model's exceedance thresholds {model_thr}")
+    p25, p156, p645 = (_col(fc, prob_col(PT[k])) for k in ("light", "moderate", "heavy"))
+    def window(n: int) -> float:
+        return float(np.nansum(rain[:int(n)]))
+
+    for key in ("latitude", "elev_mean", "slope_mean", "soil_clay_pct", "tpi_2km"):
+        if key not in gp:
+            raise KeyError(f"GP attribute '{key}' missing for {gp.get('gp_code')}")
     crops = crops if crops is not None else crops_for(gp["block_name"], days[0], cfg)
     out: list[Advisory] = []
 
@@ -98,38 +111,49 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
     if wi is not None:
         out.append(Advisory("heavy_rain", worst, "general", "heavy_rain_title", "heavy_rain_text", "heavy_rain_action",
                             {"rain": round(float(rain[wi]), 1),
-                             "prob": int(round(100 * p645[wi])) if np.isfinite(p645[wi]) else "-", **dparam(wi)},
+                             "prob": int(round(100 * p645[wi])) if np.isfinite(p645[wi]) else "-", "thr": PT["heavy"],
+                             **dparam(wi)},
                             [int(wi)]))
 
     # 2 waterlogging (terrain + soil aware) -----------------------------------------------------------
     wl = R["waterlogging"]
-    if rain3 >= wl["trigger_3day_mm"] and gp.get("slope_mean", 99) <= wl["flat_slope_deg"] \
-            and gp.get("soil_clay_pct", 0) >= wl["clay_pct"]:
-        out.append(Advisory("waterlogging", "orange" if rain3 >= 2 * wl["trigger_3day_mm"] else "yellow", "general",
-                            "waterlogging_title", "waterlogging_text", "waterlogging_action",
-                            {"rain3": round(rain3, 1), "slope": round(gp["slope_mean"], 1),
-                             "clay": round(gp["soil_clay_pct"])}, [0, 1, 2]))
+    rain_wl = window(wl["window_days"])
+    # needs terrain + soil: GPs where either is unknown are not assessed (no guessed values)
+    if (np.isfinite(gp["slope_mean"]) and np.isfinite(gp["soil_clay_pct"]) and rain_wl >= wl["trigger_3day_mm"]
+            and gp["slope_mean"] <= wl["flat_slope_deg"] and gp["soil_clay_pct"] >= wl["clay_pct"]):
+        lvl = "orange" if rain_wl >= wl["orange_multiplier"] * wl["trigger_3day_mm"] else "yellow"
+        out.append(Advisory("waterlogging", lvl, "general", "waterlogging_title", "waterlogging_text",
+                            "waterlogging_action",
+                            {"rain3": round(rain_wl, 1), "window": int(wl["window_days"]), "slope": round(gp["slope_mean"], 1),
+                             "clay": round(gp["soil_clay_pct"])}, list(range(int(wl["window_days"])))))
 
     # 3 crop water need (ET0 x Kc) and dry-spell irrigation ------------------------------------------------
     doy = np.array([d.timetuple().tm_yday for d in days])
-    et0 = et0_fao56(tmax, tmin, rh, wind, gp.get("latitude", 18.5), gp.get("elev_mean", 600), doy)
+    E = cfg.advisory["et0"]
+    et0 = et0_fao56(tmax, tmin, rh, wind, gp["latitude"], gp["elev_mean"], doy, krs=E["krs"],
+                    gust_to_mean=E["gust_to_mean"])
     ds = R["dry_spell_irrigation"]
-    p_dry_ok = (not np.isfinite(p25[:3]).any()) or np.nanmax(p25[:3]) <= ds["max_prob_2p5"]
+    n = int(ds["window_days"])
+    rain_ds = window(n)
+    p_dry_ok = (not np.isfinite(p25[:n]).any()) or np.nanmax(p25[:n]) <= ds["max_prob_2p5"]
     for c in crops:
-        if rain3 < ds["rain_3day_mm"] and p_dry_ok and c.stage_type in ds["sensitive_stages"]:
-            etc = float(np.nansum(et0[:3]) * c.kc)
-            irr = max(0.0, etc - 0.8 * rain3)
+        if rain_ds < ds["rain_3day_mm"] and p_dry_ok and c.stage_type in ds["sensitive_stages"]:
+            et0_n = float(np.nansum(et0[:n]))
+            etc = et0_n * c.kc
+            irr = max(0.0, etc - ds["effective_rain_fraction"] * rain_ds)
             out.append(Advisory("dry_spell", "yellow", "crop", "dry_spell_title", "dry_spell_text", "dry_spell_action",
-                                {"rain3": round(rain3, 1), "etc": round(etc, 1), "irr": int(round(irr)),
-                                 "et0_3day": round(float(np.nansum(et0[:3])), 1)}, [0, 1, 2], c.crop_key))
+                                {"rain3": round(rain_ds, 1), "etc": round(etc, 1), "irr": int(round(irr)),
+                                 "et0_3day": round(et0_n, 1)}, list(range(n)), c.crop_key))
 
     # 4 sowing window (kharif onset) ------------------------------------------------------------------------
     sw = R["sowing_window"]
-    if days[0].month in sw["months"] and any(c.stage_type == "sowing" for c in crops):
-        cum = float((ante_obs7 or 0.0) + rain3)
+    # needs observed antecedent rain: without it the cumulative total is unknown, so no advice is given
+    if days[0].month in sw["months"] and any(c.stage_type == "sowing" for c in crops) and ante_obs7 is not None:
+        cum = float(ante_obs7 + window(sw["window_days"]))
         key = "sowing_ok" if cum >= sw["cumulative_mm"] else "sowing_wait"
         out.append(Advisory("sowing_window", "green" if key == "sowing_ok" else "yellow", "general",
-                            f"{key}_title", f"{key}_text", f"{key}_action", {"cum": int(round(cum))}, [0, 1, 2]))
+                            f"{key}_title", f"{key}_text", f"{key}_action", {"cum": int(round(cum)), "need": int(round(sw["cumulative_mm"]))},
+                            list(range(int(sw["window_days"])))))
 
     # 5 spray window ----------------------------------------------------------------------------------------
     sp = R["spray_window"]
@@ -144,9 +168,11 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
                             {}, list(range(len(rain)))))
 
     # 6 fertiliser timing ----------------------------------------------------------------------------------------
-    if rain2 >= R["fertiliser"]["avoid_if_rain_48h_mm"]:
+    F = R["fertiliser"]
+    rain_f = window(F["window_days"])
+    if rain_f >= F["avoid_if_rain_48h_mm"]:
         out.append(Advisory("fertiliser", "yellow", "general", "fert_avoid_title", "fert_avoid_text", "fert_avoid_action",
-                            {"rain2": round(rain2, 1)}, [0, 1]))
+                            {"rain2": round(rain_f, 1)}, list(range(int(F["window_days"])))))
 
     # 7 heat --------------------------------------------------------------------------------------------------------
     H = R["heat"]
@@ -161,9 +187,9 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
     i = int(np.nanargmin(tmin)) if np.isfinite(tmin).any() else None
     if i is not None and tmin[i] <= C["yellow_tmin"]:
         lvl = "red" if tmin[i] <= C["red_tmin"] else "orange" if tmin[i] <= C["orange_tmin"] else "yellow"
-        if gp.get("tpi_2km", 0) <= C["valley_tpi_2km"]:
+        if np.isfinite(gp["tpi_2km"]) and gp["tpi_2km"] <= C["valley_tpi_2km"]:
             lvl = _raise(lvl)
-        key = "frost" if tmin[i] <= C["red_tmin"] + 2 else "cold"
+        key = "frost" if tmin[i] <= C["red_tmin"] + C["frost_margin_c"] else "cold"
         out.append(Advisory(key, lvl, "general", f"{key}_title", f"{key}_text", f"{key}_action",
                             {"tmin": round(float(tmin[i]), 1), **dparam(i)}, [i]))
 
@@ -173,8 +199,8 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
         cand = np.where((p156 >= T["min_prob_15p6"]) & (tmax >= T["min_tmax"]) & (rh >= T["min_rh"]))[0]
         if len(cand):
             i = int(cand[np.argmax(p156[cand])])
-            out.append(Advisory("thunderstorm", "orange" if p156[i] >= 0.6 else "yellow", "general", "thunder_title",
-                                "thunder_text", "thunder_action", {"prob": int(round(100 * p156[i])), **dparam(i)},
+            out.append(Advisory("thunderstorm", "orange" if p156[i] >= T["orange_prob_15p6"] else "yellow", "general", "thunder_title",
+                                "thunder_text", "thunder_action", {"prob": int(round(100 * p156[i])), "thr": PT["moderate"], **dparam(i)},
                                 [int(c) for c in cand]))
 
     # 10 wind / lodging (spec rule 5) -------------------------------------------------------------------------------
@@ -215,7 +241,7 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
     # 13 crop disease models ------------------------------------------------------------------------------------------
     for c in crops:
         for dm in c.diseases:
-            r = disease_models.evaluate(dm, rain, tmax, tmin, rh)
+            r = disease_models.evaluate(dm, rain, tmax, tmin, rh, cfg)
             if r.level >= 2:
                 out.append(Advisory(f"disease:{dm}", "orange" if r.level == 3 else "yellow", "disease",
                                     "disease_title", "disease_title", None,
@@ -223,10 +249,11 @@ def evaluate(fc: pd.DataFrame, gp: dict, issue: date, cfg: Config | None = None,
     return out
 
 
-def overall(advisories: list[Advisory]) -> str:
+def overall(advisories: list[Advisory], cfg: Config | None = None) -> str:
     """IMD-style weather warning level: driven by weather hazards only. Crop-disease risk and farm
     operation windows (spray / harvest / sowing) are advice, not weather warnings, so they never raise
     the panchayat's colour on the map; they are shown with their own risk level in the advisory."""
+    ol = (cfg or load_config()).advisory["overall_level"]
     lv = [a.severity for a in advisories
-          if a.category != "disease" and a.rule not in ("spray_window", "harvest", "sowing_window")]
+          if a.category not in ol["exclude_categories"] and a.rule not in ol["exclude_rules"]]
     return max(lv, key=LEVELS.index) if lv else "green"

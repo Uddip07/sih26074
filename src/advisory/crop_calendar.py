@@ -28,7 +28,7 @@ def _in_window(d: date, start: str, end: str) -> bool:
 def crops_for(block_name: str, on: date, cfg: Config | None = None, only: list[str] | None = None) -> list[CropStage]:
     cfg = cfg or load_config()
     out = []
-    for key, c in cfg.crops.get("crops", {}).items():
+    for key, c in cfg.crops["crops"].items():
         if only and key not in only:
             continue
         if block_name.upper() not in [b.upper() for b in c["blocks"]] and not only:
@@ -43,4 +43,4 @@ def crops_for(block_name: str, on: date, cfg: Config | None = None, only: list[s
 
 def all_crops(cfg: Config | None = None) -> dict[str, dict]:
     cfg = cfg or load_config()
-    return {k: {"name": v["name"], "blocks": v["blocks"]} for k, v in cfg.crops.get("crops", {}).items()}
+    return {k: {"name": v["name"], "blocks": v["blocks"]} for k, v in cfg.crops["crops"].items()}

@@ -49,7 +49,7 @@ def _inv(x: np.ndarray, space: str) -> np.ndarray:
 
 def resolve_features(model_cfg: dict, columns: list[str]) -> list[str]:
     fams = model_cfg["features"]
-    excl = set(model_cfg.get("exclude_features", []))
+    excl = set(model_cfg["exclude_features"])
     feats: list[str] = []
     for fam in fams.values():
         for f in fam:
@@ -130,9 +130,12 @@ class VariableDownscaler:
         self.best_iteration_ = getattr(self.point_, "best_iteration", None)
 
         # multi-quantile model (one booster, several outputs)
+        from src.common.config import load_config
+
+        qt = load_config().model["xgboost"]["quantile_trees"]
         self.quant_ = self._regressor(objective="reg:quantileerror", quantile_alpha=np.array(self.quantiles),
                                       early_stopping_rounds=None,
-                                      n_estimators=max(100, int(self.params.get("n_estimators", 600) * 0.6)))
+                                      n_estimators=max(int(qt["min"]), int(self.params["n_estimators"] * qt["fraction"])))
         self.quant_.fit(X_tr, r_tr, verbose=False)
         if self.conformal and calib is not None:
             q = self.quant_.predict(X_ca)

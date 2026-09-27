@@ -19,7 +19,6 @@ import json
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date
 
 from src.common.config import Config, load_config
 from src.common.logging_utils import get_logger
@@ -77,7 +76,7 @@ def _stages() -> list[Stage]:
         from src.pipeline.predict import run
 
         if a.source == "live":
-            return run(c, date.today(), "live")["meta"]
+            return run(c, c.today(), "live")["meta"]
         # replay the most recent archived issues so the dashboard has real, verifiable issues
         import pandas as pd
 

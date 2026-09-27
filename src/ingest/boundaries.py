@@ -139,7 +139,7 @@ def build(cfg: Config | None = None) -> dict:
     cen = gps_m.geometry.representative_point().to_crs("EPSG:4326")
     gps["latitude"] = cen.y.round(5).to_numpy()
     gps["longitude"] = cen.x.round(5).to_numpy()
-    excluded = set(cfg["district"].get("exclude_blocks", []))
+    excluded = set(cfg["district"]["exclude_blocks"])
     gps["modelled"] = ~gps["block_name"].isin(excluded)
 
     gps = gps[["gp_code", "gp_name", "block_name", "block_lgd", "lgd_block_name", "attribute_agrees",

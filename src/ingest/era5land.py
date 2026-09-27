@@ -23,7 +23,6 @@ Outputs
 
 from __future__ import annotations
 
-import time
 from pathlib import Path
 
 import numpy as np
@@ -32,7 +31,7 @@ import pandas as pd
 from src.common import manifest
 from src.common.config import Config, load_config
 from src.common.geo import Grid, area_weights
-from src.common.http import RateLimited, get_json
+from src.common.http import get_json, patiently
 from src.common.logging_utils import get_logger
 from src.ingest.boundaries import load_blocks, load_panchayats
 
@@ -148,22 +147,7 @@ def build(cfg: Config | None = None, patient: bool = True) -> None:
 
 def _fetch_all(cfg, nodes, cache, patient, model, daily) -> None:
     for n, (lat, lon) in enumerate(nodes.itertuples(index=False), 1):
-        transient = 0
-        while True:
-            try:
-                fetch_node(cfg, float(lat), float(lon), cache, model, daily)
-                break
-            except RateLimited as exc:
-                if not patient:
-                    raise
-                log.warning("quota exhausted (%s); sleeping 30 min then resuming", exc)
-                time.sleep(1800)
-            except RuntimeError as exc:  # network/DNS/server trouble: back off, retry this node
-                transient += 1
-                if transient > 6:
-                    raise
-                log.warning("transient failure on node %.2f,%.2f (%s); retry %d/6 in 5 min", lat, lon, exc, transient)
-                time.sleep(300)
+        patiently(lambda lat=lat, lon=lon: fetch_node(cfg, float(lat), float(lon), cache, model, daily), f"node {float(lat):.2f},{float(lon):.2f}", patient)
         if n % 10 == 0 or n == len(nodes):
             log.info("  nodes done %d/%d", n, len(nodes))
 

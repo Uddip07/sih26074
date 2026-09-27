@@ -35,6 +35,7 @@ from src.common.config import Config, load_config
 from src.common.logging_utils import get_logger
 from src.features.dataset import (
     FC_VARS,
+    TIME_VARYING_INPUTS,
     add_antecedent,
     add_ndvi,
     add_season,
@@ -76,8 +77,8 @@ def validate_block_csv(df: pd.DataFrame, cfg: Config, issue: date) -> pd.DataFra
             raise BlockForecastError(f"unknown block LGD codes: {sorted(unknown)}")
         df = df.drop(columns=[c for c in ["block_name"] if c in df]).merge(blocks, on="block_lgd")
     df["lead_day"] = pd.to_numeric(df["lead_day"], errors="raise").astype(int)
-    if not df["lead_day"].between(1, 5).all():
-        raise BlockForecastError("lead_day must be 1..5")
+    if not df["lead_day"].isin(cfg.lead_days).all():
+        raise BlockForecastError(f"lead_day must be one of {cfg.lead_days}")
     for v, lo, hi in [("rain", 0, 500), ("tmax", -5, 50), ("tmin", -10, 40), ("rh", 0, 100), ("wind", 0, 200)]:
         df[v] = pd.to_numeric(df[v], errors="raise").astype(float)
         bad = ~df[v].between(lo, hi)
@@ -110,7 +111,7 @@ def get_block_forecast(cfg: Config, issue: date, source: str, csv: Path | pd.Dat
         # fc_rain_ante3 needs the lead-1 forecasts of the 3 previous issues; backfill any that were
         # never issued live (e.g. server was off) from the ECMWF previous-runs archive
         have = set(pd.to_datetime(_history(cfg, issue)["issue_date"]).dt.date) if not _history(cfg, issue).empty else set()
-        for k in (1, 2, 3):
+        for k in range(1, int(cfg["operational"]["history_backfill_days"]) + 1):
             prev = issue - timedelta(days=k)
             if prev not in have:
                 try:
@@ -152,10 +153,10 @@ def build_features(cfg: Config, fc_block: pd.DataFrame, issue: date) -> pd.DataF
     static = pd.read_parquet(cfg.paths.interim / "gp_static.parquet")
     static["gp_code"] = static["gp_code"].astype(str)
     fc = pd.concat([_history(cfg, issue), fc_block]).rename(columns={v: f"fc_{v}" for v in FC_VARS})
-    fc = forecast_context(fc)
+    fc = forecast_context(fc, cfg.lead_days)
     fc = fc[fc["issue_date"] == pd.Timestamp(issue)]
     df = add_season(expand_to_gps(fc, static[["gp_code", "block_lgd"]]))
-    df = add_antecedent(df, _obs_rain(cfg), carry_forward_days=10)
+    df = add_antecedent(df, _obs_rain(cfg), carry_forward_days=int(cfg["operational"]["antecedent_carry_forward_days"]))
     df = add_ndvi(df, cfg)
     return add_static(df, static)
 
@@ -165,12 +166,26 @@ def run(cfg: Config | None = None, issue: date | None = None, source: str = "arc
         model_path: Path | None = None, write: bool = True) -> dict:
     cfg = cfg or load_config()
     t0 = time.time()
-    issue = issue or date.today()
+    issue = issue or cfg.today()
     languages = languages or list(cfg["operational"]["languages"])
     model_path = model_path or cfg.paths.models / "downscaler_operational.joblib"
     ds = Downscaler.load(model_path)
     fcb = get_block_forecast(cfg, issue, source, csv)
     X = build_features(cfg, fcb, issue)
+    # input completeness: share of GP-days with each time-varying input actually available.
+    # Missing inputs are passed to the model as missing (never filled with guesses) and reported.
+    completeness = {f: round(float(X[f].notna().mean()), 3) for f in TIME_VARYING_INPUTS}
+    norm_path = cfg.paths.reports / "input_coverage_by_month.json"
+    if not norm_path.exists():
+        raise FileNotFoundError(f"{norm_path} missing - rebuild the dataset stage")
+    norm = json.loads(norm_path.read_text(encoding="utf-8"))
+    month = str(issue.month)
+    tol = float(cfg["operational"]["input_gap_tolerance"])
+    input_gaps = {f: {"available": share, "seasonal_norm": norm[f][month]}
+                  for f, share in completeness.items() if share < norm[f][month] - tol}
+    for f, g in input_gaps.items():
+        log.warning("input %s available for %.0f%% of GP-days (seasonal norm %.0f%%)", f,
+                    100 * g["available"], 100 * g["seasonal_norm"])
     pred = ds.predict(X)
     out = pd.concat([X[["gp_code", "block_lgd", "issue_date", "valid_date", "lead_day", "fc_rain", "fc_tmax",
                         "fc_tmin", "fc_rh", "fc_wind", "ante_obs7_lag3"]], pred], axis=1)
@@ -202,7 +217,7 @@ def run(cfg: Config | None = None, issue: date | None = None, source: str = "arc
         crops = crops_for(gp["block_name"], first_day, cfg)
         ante = g["ante_obs7_lag3"].iloc[0]
         advs = rules.evaluate(g, gp, issue, cfg, crops, None if pd.isna(ante) else float(ante))
-        adv_out[gp_code] = {"overall": rules.overall(advs), "advisories": [a.to_dict() for a in advs],
+        adv_out[gp_code] = {"overall": rules.overall(advs, cfg), "advisories": [a.to_dict() for a in advs],
                             "crops": [c.crop_key for c in crops]}
         for lang in languages:
             bulletins[lang][gp_code] = bl.build(gp, g, advs, crops, issue, lang, cfg)
@@ -210,6 +225,7 @@ def run(cfg: Config | None = None, issue: date | None = None, source: str = "arc
     meta = {"issue_date": issue.isoformat(), "source": source, "model": model_path.name,
             "model_meta": ds.meta, "n_gps": int(out["gp_code"].nunique()),
             "leads": sorted(int(x) for x in out["lead_day"].unique()),
+            "input_completeness": completeness, "input_gaps": input_gaps,
             "validated_leads": list(cfg.lead_days),
             "obs_rain_last_date": str(_obs_rain(cfg)["valid_date"].max().date()),
             "seconds": round(time.time() - t0, 1),

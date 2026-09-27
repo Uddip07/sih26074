@@ -56,6 +56,8 @@ features:
 exclude_features: [latitude, longitude]
 
 xgboost:
+  # the multi-quantile booster uses fewer trees than the point model (it has no early stopping)
+  quantile_trees: {fraction: 0.6, min: 100}
   base:
     n_estimators: 600
     max_depth: 6

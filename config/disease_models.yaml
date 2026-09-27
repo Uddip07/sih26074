@@ -1,0 +1,89 @@
+# =============================================================================
+# Crop disease / pest weather-risk models (feature F21), editable by the KVK plant-protection officer.
+#
+# Each model lists risk levels, highest first; the first level whose rule fires is reported.
+#   when:        per-day conditions, all must hold. Variables: rain, rain_2day (today + yesterday),
+#                tmax, tmin, tmean, rh. Operators: ge, gt, le, lt.
+#   min_days:    fires when at least this many days are favourable ...
+#   consecutive: ... or when this many favourable days occur in a row.
+# Level 3 -> orange ("high risk"), level 2 -> yellow ("moderate"), level 1 -> informational only.
+# Sources are the published weather criteria cited per model.
+# =============================================================================
+
+grape_downy_mildew:            # Plasmopara viticola: "10-10-24"-style rule (rain >= 10 mm over 2 days, T >= 10 °C, wetness)
+  levels:
+    - level: 3
+      when: {tmean: {ge: 10}, rain_2day: {ge: 10}, rh: {ge: 85}}
+      min_days: 1
+    - level: 2
+      when: {tmean: {ge: 10}, rain: {ge: 2.5}, rh: {ge: 80}}
+      min_days: 1
+
+grape_powdery_mildew:          # Erysiphe necator: Gubler-Thomas style, 15-32 °C, little rain, 3 favourable days in a row
+  levels:
+    - level: 3
+      when: {tmin: {ge: 15}, tmax: {le: 32}, rain: {lt: 10}}
+      consecutive: 3
+    - level: 1
+      when: {tmin: {ge: 15}, tmax: {le: 32}, rain: {lt: 10}}
+      min_days: 2
+
+onion_thrips:                  # Thrips tabaci: hot, dry spells
+  levels:
+    - level: 3
+      when: {tmax: {ge: 30}, rh: {le: 60}, rain: {lt: 1}}
+      consecutive: 3
+    - level: 2
+      when: {tmax: {ge: 30}, rh: {le: 60}, rain: {lt: 1}}
+      min_days: 2
+
+onion_purple_blotch:           # Alternaria porri: RH >= 80 %, 21-30 °C, rain days
+  levels:
+    - level: 3
+      when: {rh: {ge: 80}, tmean: {ge: 21, le: 30}, rain: {ge: 1}}
+      min_days: 2
+    - level: 2
+      when: {rh: {ge: 80}, tmean: {ge: 21, le: 30}, rain: {ge: 1}}
+      min_days: 1
+
+pomegranate_bacterial_blight:  # Xanthomonas axonopodis pv. punicae (oily spot): rain + warm + humid
+  levels:
+    - level: 3
+      when: {rain: {ge: 2.5}, tmean: {ge: 25, le: 35}, rh: {ge: 80}}
+      min_days: 2
+    - level: 2
+      when: {rain: {ge: 2.5}, tmean: {ge: 25, le: 35}, rh: {ge: 80}}
+      min_days: 1
+
+rice_blast:                    # Magnaporthe oryzae: night 20-26 °C, RH >= 90 %, drizzle / cloudy
+  levels:
+    - level: 3
+      when: {tmin: {ge: 20, le: 26}, rh: {ge: 90}, rain: {ge: 1, le: 15}}
+      min_days: 2
+    - level: 2
+      when: {tmin: {ge: 20, le: 26}, rh: {ge: 90}, rain: {ge: 1, le: 15}}
+      min_days: 1
+
+potato_late_blight:            # Phytophthora infestans: Hutton criteria style, Tmin >= 10 °C and RH >= 90 % on 2 days in a row
+  levels:
+    - level: 3
+      when: {tmin: {ge: 10}, rh: {ge: 90}}
+      consecutive: 2
+    - level: 1
+      when: {tmin: {ge: 10}, rh: {ge: 90}}
+      min_days: 1
+
+soybean_rust:                  # Phakopsora pachyrhizi: 18-28 °C with frequent rain / leaf wetness
+  levels:
+    - level: 3
+      when: {tmean: {ge: 18, le: 28}, rh: {ge: 85}, rain: {ge: 1}}
+      min_days: 3
+    - level: 2
+      when: {tmean: {ge: 18, le: 28}, rh: {ge: 85}, rain: {ge: 1}}
+      min_days: 1
+
+wheat_rust:                    # leaf / stem rust: 15-25 °C with dew (RH >= 80 %)
+  levels:
+    - level: 2
+      when: {tmean: {ge: 15, le: 25}, rh: {ge: 80}}
+      min_days: 2

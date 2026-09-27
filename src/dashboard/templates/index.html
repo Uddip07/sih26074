@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Gram-Vani</title>
+  <title></title>
   <meta name="description" content="Block-to-panchayat downscaled 5-day weather forecast and agromet advisories">
   <meta name="theme-color" content="#003D6B">
   <link rel="manifest" href="/manifest.webmanifest">
@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;600;700&family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-  <link rel="stylesheet" href="/static/css/style.css?v=12">
+  <link rel="stylesheet" href="/static/css/style.css?v=15">
 </head>
 <body>
 <a class="sr-only" href="#panel">Skip to panchayat details</a>
@@ -19,35 +19,20 @@
 
 <header class="toolbar" role="toolbar" aria-label="Forecast controls">
   <div class="brand">
-    <h1 id="appTitle">Gram-Vani</h1>
-    <div class="sub" id="appSub">Block forecast → Gram Panchayat, today + 7 days</div>
+    <h1 id="appTitle"></h1>
+    <div class="sub" id="appSub"></div>
   </div>
   <div class="field"><span>Issue date</span><output id="issueSel" class="issue-date" aria-label="Forecast issue date">…</output></div>
   <div class="field"><span>Forecast day <span class="lead-label" id="leadLabel"></span></span>
-    <input type="range" id="leadRange" min="1" max="8" step="1" value="1" aria-label="Lead day"></div>
-  <label class="field">Show<select id="varSel" aria-label="Map variable">
-    <option value="r">Rainfall (mm)</option>
-    <option value="p25">Chance of rain ≥ 2.5 mm</option>
-    <option value="p645">Chance of heavy rain ≥ 64.5 mm</option>
-    <option value="unc">Rain uncertainty (P90 − P10)</option>
-    <option value="dr">Panchayat − block rain (mm)</option>
-    <option value="tx">Max temperature (°C)</option>
-    <option value="tn">Min temperature (°C)</option>
-    <option value="rh">Humidity (%)</option>
-    <option value="w">Wind (km/h)</option>
-    <option value="sev">Warning level</option>
-  </select></label>
+    <input type="range" id="leadRange" min="1" step="1" value="1" aria-label="Lead day"></div>
+  <label class="field">Show<select id="varSel" aria-label="Map variable"></select></label>
   <div class="field"><span>View</span>
     <div class="seg" role="group" aria-label="Map layout">
       <button id="viewSplit" aria-pressed="true">Block | Panchayat</button>
       <button id="viewSingle" aria-pressed="false">Panchayat only</button>
     </div></div>
   <div class="field"><span>Language</span>
-    <div class="seg" role="group" aria-label="Bulletin language">
-      <button data-lang="mr" aria-pressed="true">मराठी</button>
-      <button data-lang="hi" aria-pressed="false">हिन्दी</button>
-      <button data-lang="en" aria-pressed="false">English</button>
-    </div></div>
+    <div class="seg" role="group" aria-label="Bulletin language" id="langSeg"></div></div>
   <div class="field search-wrap"><span>Find panchayat</span>
     <input type="search" id="search" placeholder="Name or LGD code" autocomplete="off" role="combobox"
            aria-expanded="false" aria-controls="searchResults" aria-autocomplete="list">
@@ -86,6 +71,6 @@
 <div class="tip" id="tip" hidden></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="/static/js/dashboard.js?v=12" defer></script>
+<script src="/static/js/dashboard.js?v=15" defer></script>
 </body>
 </html>

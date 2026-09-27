@@ -35,27 +35,36 @@ def catalog(lang: str) -> dict:
         return yaml.safe_load(f)
 
 
-class _Safe(dict):
+class _Strict(dict):
     def __missing__(self, key):
-        return "{" + key + "}"
+        raise KeyError(f"i18n placeholder '{{{key}}}' has no value")
 
 
 def t(lang: str, key: str, **kw) -> str:
-    return str(catalog(lang).get(key, catalog("en").get(key, key))).format_map(_Safe(kw))
+    """Translated string; a key missing from the language catalogue is an error, never English text."""
+    cat = catalog(lang)
+    if key not in cat:
+        raise KeyError(f"i18n key '{key}' missing from {lang}.yaml")
+    return str(cat[key]).format_map(_Strict(kw))
 
 
 def day_label(d: date, lang: str) -> str:
     return f"{catalog(lang)['day_names'][d.weekday()]} {d.day:02d}/{d.month:02d}"
 
 
-def _render_adv(a: Advisory, lang: str, issue: date, crops: dict[str, CropStage]) -> dict:
+def _day(issue: date, leads: list[int], i: int, lang: str) -> str:
+    """Label of advisory day ``i`` (index into the advisory window's ``leads``)."""
+    return day_label(issue + timedelta(days=int(leads[int(i)])), lang)
+
+
+def _render_adv(a: Advisory, lang: str, issue: date, crops: dict[str, CropStage], leads: list[int]) -> dict:
     cat = catalog(lang)
     p = dict(a.params)
     if "day_index" in p:
-        p["day"] = day_label(issue + timedelta(days=p["day_index"] + 1), lang)
+        p["day"] = _day(issue, leads, p["day_index"], lang)
     if "day_indices" in p:
-        p["days"] = ", ".join(day_label(issue + timedelta(days=i + 1), lang) for i in p["day_indices"])
-    crop_name = crops[a.crop].crop_name.get(lang, crops[a.crop].crop_name["en"]) if a.crop in crops else ""
+        p["days"] = ", ".join(_day(issue, leads, i, lang) for i in p["day_indices"])
+    crop_name = crops[a.crop].crop_name[lang] if a.crop in crops else ""
     p["crop"] = crop_name
     if a.category == "disease":
         dz = cat["diseases"][p["disease"]]
@@ -68,18 +77,20 @@ def _render_adv(a: Advisory, lang: str, issue: date, crops: dict[str, CropStage]
             "action": t(lang, a.action_key, **p) if a.action_key else "", "days": a.days}
 
 
-def weather_summary(fc: pd.DataFrame, lang: str) -> str:
+def weather_summary(fc: pd.DataFrame, lang: str, cfg: Config) -> str:
+    th = cfg.advisory["summary"]
     rain = fc["rain_pred"].to_numpy(float)
     total = round(float(np.nansum(rain)), 1)
-    n_rain = int((rain >= 2.5).sum())
-    if np.nanmax(rain) >= 64.5:
-        s = t(lang, "summary_heavy", total=total)
-    elif np.nanmax(rain) >= 15.6:
-        s = t(lang, "summary_moderate", total=total, n_days=n_rain)
+    n = len(rain)
+    n_rain = int((rain >= th["rain_day_mm"]).sum())
+    if np.nanmax(rain) >= th["heavy_mm"]:
+        s = t(lang, "summary_heavy", total=total, n=n)
+    elif np.nanmax(rain) >= th["moderate_mm"]:
+        s = t(lang, "summary_moderate", total=total, n_days=n_rain, n=n)
     elif n_rain:
-        s = t(lang, "summary_light", total=total, n_days=n_rain)
+        s = t(lang, "summary_light", total=total, n_days=n_rain, n=n)
     else:
-        s = t(lang, "summary_dry", total=total)
+        s = t(lang, "summary_dry", total=total, n=n)
     s += " " + t(lang, "summary_temp", tmax_lo=round(fc["tmax_pred"].min()), tmax_hi=round(fc["tmax_pred"].max()),
                  tmin_lo=round(fc["tmin_pred"].min()), tmin_hi=round(fc["tmin_pred"].max()))
     return s
@@ -89,9 +100,10 @@ def build(gp: dict, fc: pd.DataFrame, advisories: list[Advisory], crops: list[Cr
           lang: str = "mr", cfg: Config | None = None, review: dict | None = None) -> dict:
     cfg = cfg or load_config()
     fc = fc.sort_values("lead_day").reset_index(drop=True)
+    leads = [int(x) for x in fc["lead_day"]]
     crop_map = {c.crop_key: c for c in crops}
-    rendered = [_render_adv(a, lang, issue, crop_map) for a in advisories]
-    sev = overall(advisories)
+    rendered = [_render_adv(a, lang, issue, crop_map, leads) for a in advisories]
+    sev = overall(advisories, cfg)
     colors = cfg.advisory["severity_colors"]
     table = []
     for _, r in fc.iterrows():
@@ -106,27 +118,26 @@ def build(gp: dict, fc: pd.DataFrame, advisories: list[Advisory], crops: list[Cr
             "rh": int(round(float(r["rh_pred"]))), "wind": int(round(float(r["wind_pred"]))),
             "block_rain": round(float(r.get("fc_rain", np.nan)), 1),
         })
-    crop_lines = [t(lang, "crop_stage_line", crop=c.crop_name.get(lang, c.crop_name["en"]),
-                    stage=c.stage_name.get(lang, c.stage_name["en"])) for c in crops]
+    crop_lines = [t(lang, "crop_stage_line", crop=c.crop_name[lang], stage=c.stage_name[lang]) for c in crops]
     general = [r for r in rendered if r["crop"] is None and r["rule"] != "normal"]
     if not [a for a in advisories if a.severity != "green"]:
         general.insert(0, {"rule": "normal", "severity": "green", "crop": None, "title": t(lang, "normal_title"),
                            "text": t(lang, "normal_text"), "action": "", "days": []})
     return {
         "lang": lang, "gp_code": gp["gp_code"], "gp_name": gp["gp_name"], "block_name": gp["block_name"],
-        "district": cfg.district_name if lang == "en" else cfg["district"].get(f"name_{lang}", cfg.district_name),
+        "district": cfg.district_name if lang == "en" else cfg["district"][f"name_{lang}"],
         "issue_date": issue.isoformat(),
-        "valid": [(issue + timedelta(days=1)).isoformat(), (issue + timedelta(days=len(fc))).isoformat()],
+        "valid": [(issue + timedelta(days=leads[0])).isoformat(), (issue + timedelta(days=leads[-1])).isoformat()],
         "overall_severity": sev, "overall_color": colors[sev]["hex"],
-        "overall_label": colors[sev].get(f"label_{lang}", colors[sev]["label_en"]),
-        "table": table, "summary": weather_summary(fc, lang),
+        "overall_label": colors[sev][f"label_{lang}"],
+        "table": table, "summary": weather_summary(fc, lang, cfg),
         "general": general,
         "crops": crop_lines,
         "crop_advisories": [r for r in rendered if r["crop"] is not None and not r["rule"].startswith("disease:")],
         "disease_alerts": [r for r in rendered if r["rule"].startswith("disease:")],
-        "sms": sms(gp, fc, advisories, issue, lang, crop_map),
+        "sms": sms(gp, fc, advisories, issue, lang, crop_map, cfg.advisory["sms"]["max_chars_unicode"]),
         "review": review or {"status": "auto", "note": t(lang, "not_reviewed")},
-        "labels": {k: t(lang, k) for k in ("bulletin_title", "subtitle", "district", "block", "gp", "issued", "valid",
+        "labels": {k: t(lang, k, n=len(fc)) for k in ("bulletin_title", "subtitle", "district", "block", "gp", "issued", "valid",
                                             "weather_forecast", "col_date", "col_rain", "col_rain_prob", "col_tmax",
                                             "col_tmin", "col_rh", "col_wind", "col_range", "overall_status",
                                             "weather_summary", "general_advisory", "crop_advisory",
@@ -135,29 +146,30 @@ def build(gp: dict, fc: pd.DataFrame, advisories: list[Advisory], crops: list[Cr
 
 
 def sms(gp: dict, fc: pd.DataFrame, advisories: list[Advisory], issue: date, lang: str,
-        crops: dict[str, CropStage], limit: int = 160) -> str:
+        crops: dict[str, CropStage], limit: int) -> str:
     """Prioritised SMS: highest-severity items first, trimmed to ``limit`` characters."""
     head = t(lang, "sms_prefix", gp=gp["gp_name"].title() if lang == "en" else gp["gp_name"])
+    leads = [int(x) for x in fc.sort_values("lead_day")["lead_day"]]
     items: list[tuple[int, str]] = []
     for a in advisories:
         p = dict(a.params)
         if "day_index" in p:
-            p["day"] = day_label(issue + timedelta(days=p["day_index"] + 1), lang)
+            p["day"] = _day(issue, leads, p["day_index"], lang)
         if "day_indices" in p:
-            p["days"] = ",".join(day_label(issue + timedelta(days=i + 1), lang).split(" ")[0] for i in p["day_indices"][:3])
+            p["days"] = ",".join(_day(issue, leads, i, lang).split(" ")[0] for i in p["day_indices"][:3])
         key = {"heavy_rain": "sms_heavy_rain", "dry_spell": "sms_dry_spell", "heat": "sms_heat", "cold": "sms_cold",
                "frost": "sms_cold", "wind": "sms_wind", "thunderstorm": "sms_thunder"}.get(a.rule)
         if a.rule == "spray_window" and a.severity == "green":
             key = "sms_spray_ok"
         if a.rule.startswith("disease:") and a.crop in crops:
             key = "sms_disease"
-            p["crop"] = crops[a.crop].crop_name.get(lang, crops[a.crop].crop_name["en"])
+            p["crop"] = crops[a.crop].crop_name[lang]
             p["disease"] = catalog(lang)["diseases"][p["disease"]]["name"].split(" (")[0]
         if key:
             items.append((LEVELS.index(a.severity), t(lang, key, **p)))
     items.sort(key=lambda x: -x[0])
     if not [i for i in items if i[0] > 0]:
-        items.insert(0, (0, t(lang, "sms_normal", total=round(float(fc["rain_pred"].sum())))))
+        items.insert(0, (0, t(lang, "sms_normal", total=round(float(fc["rain_pred"].sum())), n=len(fc))))
     msg = head
     for _, s in items:
         if len(msg) + len(s) + 1 > limit:
