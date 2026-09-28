@@ -219,7 +219,7 @@ def climatology_to_polygons(cfg: Config, clim: xr.DataArray) -> tuple[pd.DataFra
 def update_prelim(cfg: Config) -> None:
     """
     Preliminary CHIRPS (``ground_truth.rainfall.prelim_latency_days``) extends the truth beyond the final archive. It is used
-    ONLY for rolling operational verification (F29) and the latency-honest antecedent-rain
+    ONLY for the latency-honest antecedent-rain
     feature at inference time, never for training.
     """
     end = cfg["period"]["end"]

@@ -43,17 +43,17 @@
     ]
   },
   "chirps_prelim_cube": {
-    "path": "data\\pune\\raw\\chirps\\chirps_prelim_2026-09-01_2026-09-25.nc",
+    "path": "data\\pune\\raw\\chirps\\chirps_prelim_2026-09-01_2026-09-26.nc",
     "source": "CHIRPS v2.0 daily p05 (Funk et al. 2015), Climate Hazards Center UCSB",
     "licence": "Public domain (CHC) - cite Funk et al. 2015, doi:10.1038/sdata.2015.66",
     "produced_by": "src.ingest.chirps",
-    "generated_utc": "2026-09-27T09:34:33+00:00",
-    "bytes": 16904,
-    "sha256": "6e96778feeaeb598f0589a01c01420802d9121163cb5ecfa14e14b2e76660ae9",
-    "days": 25,
-    "missing_days": 5,
+    "generated_utc": "2026-09-28T00:50:53+00:00",
+    "bytes": 27111,
+    "sha256": "faca1b8db1239eac513f3ee1bacd06eaa23e9544a27aea096c56c2dcf41c36a8",
+    "days": 26,
+    "missing_days": 1,
     "shape": [
-      25,
+      26,
       34,
       42
     ]

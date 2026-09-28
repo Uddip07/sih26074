@@ -1,7 +1,7 @@
 /* Offline support (F33): cache the app shell and geometry; serve the last forecast/bulletin when offline. */
-const SHELL = "agromet-shell-v15";
-const DATA = "agromet-data-v15";
-const SHELL_URLS = ["/", "/static/css/style.css?v=15", "/static/js/dashboard.js?v=15", "/manifest.webmanifest",
+const SHELL = "agromet-shell-v17";
+const DATA = "agromet-data-v17";
+const SHELL_URLS = ["/", "/static/css/style.css?v=17", "/static/js/dashboard.js?v=17", "/manifest.webmanifest",
   "/static/img/icon.svg", "/api/geo/panchayats", "/api/geo/blocks"];
 
 self.addEventListener("install", (e) => {

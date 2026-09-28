@@ -79,12 +79,6 @@ def refresh_if_due(cfg: Config, force: bool = False) -> str:
         from src.pipeline.predict import run
 
         meta = run(cfg, today, "live")["meta"]
-        try:  # score every earlier issue whose observations have now arrived
-            from src.pipeline import verify
-
-            verify.run(cfg)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("verification skipped: %s", exc)
         log.info("live issue %s published (%d GPs, leads %s)", today, meta["n_gps"], meta["leads"])
         return "issued"
     except Exception as exc:  # noqa: BLE001 - keep the server alive, retry next check

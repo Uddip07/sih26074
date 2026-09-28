@@ -33,7 +33,7 @@ pip install --no-deps -e .
 ruff check src tests                        # lint (CI fails on any finding)
 pytest                                      # unit + integration tests
 python -m src.pipeline.run --only train evaluate report docs   # retrain and refresh every report
-uvicorn src.dashboard.app:app --port 8080   # dashboard
+uvicorn src.main:app --port 8080            # dashboard
 ```
 
 ## Workflow

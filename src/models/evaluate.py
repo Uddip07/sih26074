@@ -147,8 +147,7 @@ def truth_qa(cfg: Config) -> dict:
         return {"note": "IMD gridded data unavailable"}
     imd = pd.read_parquet(imd_p)
     cands = {"CHIRPS v2.0 (label)": ("block_rain_obs.parquet", "rain_obs"),
-             "ERA5 precipitation (0.25°)": ("block_met_obs.parquet", "era5_rain"),
-             "GPM IMERG Final V07 (0.1°)": ("block_rain_imerg.parquet", "rain_imerg")}
+             "ERA5 precipitation (0.25°)": ("block_met_obs.parquet", "era5_rain")}
     fc = it / "block_forecasts.parquet"
     for name, (fn, col) in cands.items():
         if not (it / fn).exists():

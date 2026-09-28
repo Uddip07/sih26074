@@ -1,174 +1,242 @@
-# Block → Gram Panchayat Weather Downscaling for Agromet Advisories
+# Gram-Vani: Panchayat-level Weather Forecasts and Agromet Advisories
 
-**SIH 2026 problem statement:** *Downscaling of weather forecast from Block level to Panchayat level: inferring
-high-resolution plots/data/information from low-resolution plot/data/information/variables for
-agro-meteorological advisory services.*
+Block-level weather forecasts downscaled to every Gram Panchayat, with crop advisories in Marathi, Hindi and English.
 
-**Pilot:** Pune district, Maharashtra: 14 blocks, **1,349 modelled Gram Panchayats** (LGD), from the Western Ghats
-crest (>1,400 m, 3,000+ mm/yr) to the Deccan rain-shadow (~500 m, <600 mm/yr).
+![Gram-Vani dashboard](assets/screenshots/02-panchayat-forecast.png)
 
-The system takes the **block-level 5-day forecast** (one value per block, as in GKMS bulletins) and produces, for
-every Gram Panchayat:
+## 1. Project Information
 
-* rainfall, Tmax, Tmin, relative humidity and wind for days 1-5, with **P10/P90 ranges** and **rain probabilities**
-  (≥ 2.5 / 15.6 / 64.5 mm);
-* an **explanation** of why the panchayat differs from its block (terrain, climatology, land cover, ... via TreeSHAP);
-* **crop- and stage-aware agromet advisories** (IMD colour-coded) and a **GKMS-style bulletin in Marathi, Hindi and
-  English** (PDF, SMS ≤ 160 characters, WhatsApp, IVR script).
+- **Project Title:** Gram-Vani: Block → Gram Panchayat weather downscaling for agromet advisories
+- **PS ID:** SIH26074
+- **PS Title:** Downscaling of weather forecast from Block level to Panchayat level: inferring high-resolution
+  plots/data/information from low-resolution plot/data/information/variables for agro-meteorological advisory services
+- **Category:** Software
+- **Theme:** Agriculture, FoodTech & Rural Development
+- **Team:** W.A.V.E
 
----
+| Member | Role |
+|---|---|
+| Akshit Agrawal | Team Leader |
+| Aveeral Jain | Member |
+| Shreyansh Rastogi | Member |
+| Uddip Jain | Member |
+| Aayura Shankar Upadhyay | Member |
+| Indrina Gupta | Member |
 
-## Results
+## 2. Problem Statement
 
-All numbers below are generated from `outputs/pune/reports/evaluation.json` by the pipeline; none are typed by
-hand. The full report with figures is `outputs/pune/reports/report.html` (also served at `/api/report`).
+Agromet advisories in India (GKMS) are issued per **block**: one rainfall and temperature value for an area of about
+1,000 km² and around 100 villages. Inside one block, conditions can differ sharply. In Pune district a single block can
+run from the Western Ghats crest (over 1,400 m, 3,000+ mm of rain a year) to the Deccan rain-shadow (about 500 m, under
+600 mm). A farmer's decision (sow, spray, irrigate, harvest) depends on the weather of their own panchayat, not the
+block average.
+
+## 3. Proposed Solution
+
+Gram-Vani takes the block forecast (one value per block, as in the official bulletins) and infers the forecast for
+every **Gram Panchayat** inside it. A machine-learning model learns, from two years of real archived forecasts and
+observations, how each panchayat systematically differs from its block (terrain, distance from the Ghat crest,
+land cover, rivers, soil, vegetation and rain climatology). The panchayat forecast then drives crop- and stage-aware
+advisories, issued as bulletins, SMS and IVR scripts in three languages.
+
+**Pilot:** Pune district, Maharashtra: 14 blocks, **1,349 Gram Panchayats** (LGD boundaries).
+
+## 4. Key Features
+
+- **Daily live forecast, today + 7 days:** each morning, the latest ECMWF block forecast is downscaled to all
+  1,349 panchayats automatically. Days 1–5 are the validated range; today and days 6–7 are shown as indicative.
+- **Five variables:** rainfall, max/min temperature, humidity and wind, with a likely range (P10–P90) and rain
+  probabilities (≥ 2.5 / 15.6 / 64.5 mm).
+- **Explainable:** "why this panchayat differs from its block" (terrain, climatology, land cover …) for every forecast.
+- **IMD colour-coded warnings** (heavy rain, heat, cold/frost, wind, thunderstorm, waterlogging), driven by weather only.
+- **Crop advisories** for 11 crops by block and growth stage: irrigation amounts (FAO-56 ET0 × Kc), spray and
+  fertiliser windows, sowing and harvest windows, and 9 weather-driven disease/pest risk models.
+- **Bulletins in मराठी / हिन्दी / English:** PDF, text, SMS (≤ 160 characters) and IVR script.
+- **Dashboard:** block-vs-panchayat maps side by side, day slider, search or GPS "my panchayat", accuracy scorecard,
+  officer review/approve/publish workflow, CSV upload of an official block forecast, offline-capable (PWA),
+  shareable links (`?gp=<LGD code>&day=<n>`).
+- **Honest by design:** every score comes from the pipeline's evaluation files; inputs that are missing on a given
+  day are reported on the dashboard instead of being guessed.
+- **Configurable:** every threshold, rule, map colour and district setting lives in YAML under `config/`; a new
+  district needs a new config file, not new code.
+
+## 5. Technology Stack
+
+- **Frontend:** HTML, CSS, JavaScript, Leaflet (maps), Progressive Web App (offline)
+- **Backend:** Python, FastAPI, Uvicorn, SQLite (review workflow, subscriptions, audit log)
+- **Machine Learning:** XGBoost (residual downscaling, multi-quantile), scikit-learn (isotonic calibration),
+  Optuna (tuning), SHAP (explanations), PyTorch (U-Net comparison only)
+- **Geospatial:** GeoPandas, Shapely, Rasterio, xarray
+- **Data sources (all real, open):** ECMWF IFS 0.25° via Open-Meteo, CHIRPS v2.0, ERA5-Land / ERA5, IMD gridded
+  rainfall, Copernicus DEM 30 m, ESA WorldCover 10 m, HydroRIVERS, SoilGrids, MODIS NDVI, LGD boundaries
+- **Bulletins:** fpdf2 with HarfBuzz shaping and Noto fonts (Devanagari)
+- **Deployment:** Docker; GitHub Actions (CI + daily forecast job)
+
+## 6. Architecture
+
+See [docs/architecture.md](docs/architecture.md).
+
+```text
+ECMWF block forecast (Open-Meteo)          static panchayat features (terrain, land cover,
+        │                                   rivers, soil, NDVI, rain climatology)
+        ▼                                               │
+  Downscaling model (XGBoost, one per variable) ◄───────┘
+        │   point forecast, P10–P90, rain probabilities, SHAP explanation
+        ▼
+  Advisory engine (YAML rules, crop calendar, ET0, disease models)
+        │
+        ▼
+  Bulletins mr/hi/en (PDF, SMS, IVR)  ──►  FastAPI  ──►  Gram-Vani dashboard (maps, scorecard, officer)
+```
+
+## 7. Repository Structure
+
+```text
+sih074/
+├── README.md
+├── SUBMISSION_GUIDE.md
+├── submission/
+│   ├── PRESENTATION.md          final PPT (or its link)
+│   └── DEMO.md                  demo video link
+├── src/
+│   ├── main.py                  app entry point (uvicorn src.main:app)
+│   ├── common/                  config, paths, HTTP (rate-limit aware), geo area-weighting, provenance
+│   ├── ingest/                  data downloaders: boundaries, NWP, CHIRPS, ERA5, IMD, terrain, land cover, …
+│   ├── features/                static covariates, training/inference dataset, leakage-free bias encoder
+│   ├── models/                  downscaler, baselines, tuning, training, evaluation, report
+│   ├── advisory/                rules, crop calendar, ET0, disease models, bulletins, i18n (mr/hi/en)
+│   ├── pipeline/                one-command runner, live inference, daily scheduler, publishing
+│   └── dashboard/               FastAPI app, SQLite store, web app (HTML/CSS/JS)
+├── config/                      district, model, advisory rules, disease models, crop calendar, dashboard (YAML)
+├── tests/                       unit + integration tests (pytest)
+├── docs/
+│   ├── architecture.md          components and data flow
+│   ├── data.md                  data dictionary and provenance (generated)
+│   ├── development.md           development workflow and rules
+│   └── stations_template.csv    format for adding weather-station validation data
+├── assets/
+│   └── screenshots/             dashboard screenshots
+├── data/                        pipeline data (downloads are git-ignored, regenerated by the pipeline)
+├── outputs/                     models, reports, daily forecasts (runtime files git-ignored)
+├── Dockerfile
+├── pyproject.toml
+├── requirements.txt
+├── .gitignore
+└── LICENSE
+```
+
+### What goes where?
+
+| Item | Location |
+|---|---|
+| Source code | `src/` |
+| Settings (thresholds, rules, district, map) | `config/` |
+| Architecture / technical documentation | `docs/` |
+| Screenshots | `assets/screenshots/` |
+| Final PPT / presentation | `submission/` |
+| Demo video link | `submission/DEMO.md` |
+| Validation report (figures, all scores) | `outputs/pune/reports/report.html` (also at `/api/report`) |
+
+## 8. Results
+
+Generated from `outputs/pune/reports/evaluation.json` by `python -m src.pipeline.run --only docs`; no number here
+is typed by hand. All scores are on **Gram Panchayats never seen in training** (20 % spatial hold-out) over a
+**test period never used for fitting**, against the naive "copy the block value" baseline, with 95 % bootstrap
+confidence intervals.
 
 <!-- RESULTS:START -->
-_Run `python -m src.pipeline.run` to generate the results table._
+Skill = RMSE reduction vs copying the block value; test period 2026-01-01 to 2026-08-31; lead days 1-5.
+
+| Variable | Disaggregation (observed block in) | Forecast mode (ECMWF block in) | Forecast-mode error: panchayat vs block copy |
+|---|---|---|---|
+| Rainfall | +18.8% (CI +10.0% to +22.8%) | +7.7% (CI -0.6% to +17.0%) | 11.22 vs 12.16 |
+| Max temperature | +48.6% (CI +45.6% to +51.4%) | +3.3% (CI -8.9% to +17.6%) | 1.31 vs 1.36 |
+| Min temperature | +26.6% (CI +23.4% to +30.3%) | +22.1% (CI +16.3% to +27.6%) | 0.93 vs 1.19 |
+| Humidity | +41.7% (CI +36.5% to +46.1%) | +13.3% (CI +3.9% to +24.1%) | 5.34 vs 6.16 |
+| Wind | +31.2% (CI +24.4% to +36.4%) | +9.4% (CI +5.9% to +14.4%) | 3.14 vs 3.46 |
 <!-- RESULTS:END -->
 
-**How to read them.** Two different questions are answered:
+- **Disaggregation** answers the problem statement directly: given the block value, how well is each panchayat's
+  value recovered?
+- **Forecast mode** uses the real ECMWF block forecast, so it also contains the weather model's own error, which no
+  spatial method can remove; its gains are smaller.
 
-1. **Disaggregation (perfect prognosis):** given the *observed* block value, how well do we recover each panchayat's
-   value? This is the problem statement in its purest form, with NWP forecast error removed.
-2. **Operational forecast mode:** given the real ECMWF block forecast (lead 1-5 days), how close are the panchayat
-   forecasts to what was observed? This includes the NWP model's own timing and intensity error, which no spatial
-   method can remove, so the gains are smaller and the confidence intervals wider.
+## 9. Final Presentation
 
-Every score is on **Gram Panchayats never seen in training (20 % spatial hold-out)** over a **test period never used
-for any fitting decision (2026)**, compared with the naive block copy (spec §7.1) and five other baselines, with 95 %
-bootstrap confidence intervals (moving blocks of days). A leave-one-block-out CV and an independent check against the
-IMD gauge-based grid are included.
+See [submission/PRESENTATION.md](submission/PRESENTATION.md).
 
----
+## 10. Demo Video
 
-## Data (all real, all open; nothing simulated)
+See [submission/DEMO.md](submission/DEMO.md).
 
-| Role | Source | Resolution |
-|---|---|---|
-| Block forecast (model input) | ECMWF IFS open data via Open-Meteo *Previous Runs* archive: true lead-1…5 forecasts, area-averaged to blocks | 0.25° |
-| Rainfall truth | CHIRPS v2.0 daily (satellite + gauges), area-weighted to GPs | 0.05° |
-| Tmax / Tmin / RH truth | ERA5-Land reanalysis | 0.1° |
-| Wind, ET0, radiation truth | ERA5 reanalysis (coarser; documented limitation) | 0.25° |
-| Independent rain check | IMD 0.25° gauge-gridded rainfall (never used in training) | 0.25° |
-| Boundaries | LGD blocks and Gram Panchayats (urbanmorph/geodata), cleaned and QA-mapped | polygons |
-| Terrain | Copernicus DEM GLO-30: elevation stats, slope, aspect, TPI, **windward exposure**, **Ghat-crest distance**, **upwind barrier** | 30 m |
-| Land cover | ESA WorldCover 2021, all 4 tiles covering the district, exact class fractions | 10 m |
-| Hydrology | HydroRIVERS, Natural Earth coastline, reservoirs ≥ 1 km² from WorldCover | vector |
-| Soil | SoilGrids 2.0 texture/SOC + Saxton-Rawls available water capacity | 250 m |
-| Rain climatology | CHPclim v2 monthly normals (GP ÷ block ratio: leakage-free spatial prior) | 0.05° |
-| Vegetation | MODIS 13Q1 NDVI (Planetary Computer), as-of the issue date | 250 m |
+## 11. Screenshots
 
-Provenance, licences and SHA-256 of every table: [`data/README.md`](data/README.md) (generated).
+| | |
+|---|---|
+| ![Dashboard](assets/screenshots/01-dashboard.png) Block input vs panchayat output | ![Panchayat](assets/screenshots/02-panchayat-forecast.png) Panchayat forecast and advisories |
+| ![Warnings](assets/screenshots/03-warning-levels.png) IMD warning levels | ![Scorecard](assets/screenshots/04-scorecard.png) Accuracy scorecard |
+| ![Officer](assets/screenshots/05-officer.png) Officer workflow | ![Mobile](assets/screenshots/06-mobile.png) Mobile view |
 
-## Method
+More in [assets/screenshots/](assets/screenshots/README.md).
 
-```
-block forecast (ECMWF 0.25° → block mean, lead d)                  static GP covariates (terrain, land cover,
-        │                                                          hydro, soil, NDVI, CHPclim ratio)
-        ▼                                                                    │
-  residual r = y_GP − fc_block   ◄──── XGBoost (lead-aware, all 5 variables' forecasts as inputs) ◄──┘
-        │                               + leakage-free historical bias (out-of-fold, IDW for unseen GPs)
-        ▼
-  point forecast, P10/P50/P90 (multi-quantile + split-conformal), P(rain ≥ t) (isotonic-calibrated)
-        ▼
-  optional mass conservation (area-weighted GP mean = block value)  →  TreeSHAP explanation
-        ▼
-  rule engine (YAML thresholds, crop calendar, ET0, disease models)  →  bulletins mr/hi/en, SMS, PDF
-```
-
-* **Residual learning** (spec §7.2). Rain is modelled in linear or log1p space, chosen on calibration data.
-* **Hyper-parameters** tuned with Optuna over the spec §7.2 grid, with GroupKFold by Gram Panchayat.
-* **No leakage:** the historical-bias feature is out-of-fold in time and spatially interpolated for unseen GPs;
-  antecedent rain uses a 3-day observation latency; NDVI is as-of the issue date; raw lat/lon are excluded.
-  Tests in `tests/test_leakage_and_splits.py` enforce this.
-* **Baselines:** naive block copy, bias-corrected block (no downscaling), climatology ratio / lapse rate, IDW of
-  block forecasts, linear MOS, and the NWP 0.25° grid itself (upper reference).
-
-## Advisories
-
-`config/advisory_rules.yaml` holds the thresholds; DAMU officers edit this file, not code. `config/crop_calendar_pune.yaml`
-lists 11 crops by block and stage, with FAO-56 Kc values. The rules are:
-
-* heavy rain (IMD categories and P(≥ 64.5 mm));
-* waterlogging (only on flat, clayey land);
-* dry spell with an ET0 × Kc irrigation amount;
-* kharif sowing window (≥ 65 mm cumulative);
-* spray window and fertiliser timing;
-* heat, cold wave and frost (raised one level in valleys);
-* thunderstorm and lightning;
-* strong wind;
-* heat-and-humidity pest risk;
-* harvest window;
-* crop disease models: grape downy and powdery mildew, onion thrips and purple blotch, pomegranate bacterial blight,
-  rice blast, potato late blight, soybean and wheat rust.
-
-## Running it
+## 12. Installation and Run
 
 ```bash
-python -m venv .venv && .venv/Scripts/activate        # Windows (source .venv/bin/activate on Linux)
-pip install -r requirements.txt && pip install --no-deps -e .
-python -m src.pipeline.run                             # full pipeline (resumable; skips finished stages)
-uvicorn src.dashboard.app:app --port 8080              # dashboard at http://127.0.0.1:8080, API docs at /docs
-pytest                                                 # tests
+git clone <YOUR_REPOSITORY_URL>
+cd sih074
+python -m venv .venv
+.venv/Scripts/activate            # Windows  (Linux/macOS: source .venv/bin/activate)
+pip install -r requirements.txt
+pip install --no-deps -e .
 ```
 
-* **Today's operational forecast:** `python -m src.pipeline.run --only forecast verify --source live`
-* **Downscale an official block forecast (CSV):** use the dashboard's *Officer* tab or `POST /api/downscale`.
-  The template is at `/api/template/block_forecast.csv`.
-* **Another district:** copy `config/district_pune.yaml`, change the LGD code and bbox, and add a crop calendar.
-  Then run `python -m src.pipeline.run --config config/district_<name>.yaml`. No code changes are needed.
-* **Docker:** `docker build -t agromet . && docker run -p 8080:8080 -v $PWD/data:/app/data -v $PWD/outputs:/app/outputs agromet`
+**Build the data and model** (resumable; finished stages are skipped):
 
-The free Open-Meteo tier allows 10,000 API calls a day. A first full download for one district needs about 15,000
-calls, so it takes two days. The fetchers cache per grid node and resume automatically.
-
-## Dashboard
-
-* **Maps:** side-by-side *block forecast (input)* vs *Gram Panchayat forecast (output)* maps, synchronised, with an
-  issue-date picker and a day 1-5 slider.
-* **Map layers:** rain, rain probabilities, uncertainty, panchayat − block difference, Tmax, Tmin, RH, wind and
-  warning level.
-* **Finding a panchayat:** search by name or LGD code, or use your GPS location.
-* **Panchayat panel:** 5-day block-vs-panchayat chart with ranges, "why this panchayat differs" (SHAP), advisories,
-  PDF/text/IVR bulletin in मराठी / हिन्दी / English, SMS preview, and demo registration.
-* **Scorecard and Verification tabs:** all numbers are live from the evaluation files.
-* **Officer tab:** approve, reject or edit bulletins, publish an issue, simulated dissemination (no message is ever
-  sent), live run, CSV upload, 6-hour NWP nowcast, and the audit log.
-* **Other:** installable offline PWA (last issue cached), dark mode, keyboard navigation, and warnings that are never
-  shown by colour alone.
-
-## Repository layout
-
-```
-config/            district, model, advisory rules, crop calendar (YAML)
-src/common/        config, paths, geo area-weighting, HTTP (rate-limit aware), provenance manifest
-src/ingest/        boundaries, nwp_forecast, chirps, era5land, imd_gridded, imerg (optional), terrain,
-                   landcover, hydro, soil, ndvi
-src/features/      static covariates, dataset builder (shared by training and inference), bias encoder
-src/models/        downscaler, baselines, tuning, train, evaluate, perfect_prog, metrics, postprocess, report
-src/advisory/      rules, crop calendar, ET0, disease models, bulletin (PDF/SMS), i18n (mr/hi/en)
-src/pipeline/      run (orchestrator), predict (inference), publish, verify, nowcast, disseminate, docs
-src/dashboard/     FastAPI app, SQLite workflow store, static web app (Leaflet), PWA
-tests/             unit tests (fixtures) + integration tests (skip when outputs are absent)
+```bash
+python -m src.pipeline.run
 ```
 
-## Limitations (stated plainly)
+The free Open-Meteo tier allows 10,000 calls a day and a first full download for one district needs about 15,000, so
+the first build takes two days; downloads are cached and resume automatically.
 
-* **Rainfall truth:** CHIRPS 0.05° is the finest free daily rainfall product, but it is not a rain gauge. Its daily
-  timing is weaker than its multi-day totals, and IMD gauges agree better at 2-7-day aggregation (see the truth QA in
-  the report).
-* **Temperature and wind truth:** these are reanalysis products. Wind truth (ERA5, 0.25°) is coarser than a GP, so
-  wind "downscaling" is mostly bias correction.
-* **Station validation:** the Maharashtra Mahavedh / IMD AWS station records are not openly downloadable. Drop station
-  CSVs into `data/pune/raw/stations/` to add an independent station validation. The pipeline treats them as
-  validation-only.
-* **Block forecast source:** the model is trained on ECMWF IFS forecasts. Officers can upload official IMD block
-  values instead; their error characteristics differ, so re-training on an archive of those bulletins would be
-  preferable once one exists.
-* **Nowcast layer:** this is short-range NWP, not radar. A radar or INSAT-3D adapter hook is provided.
+**Run the dashboard** (issues today's forecast automatically each morning while running):
+
+```bash
+uvicorn src.main:app --port 8080
+```
+
+Open http://127.0.0.1:8080 (API documentation at `/docs`).
+
+**Other commands**
+
+| Task | Command |
+|---|---|
+| Issue today's forecast now | `python -m src.pipeline.scheduler --force` |
+| Tests | `pytest` |
+| Another district | copy `config/district_pune.yaml` and a crop calendar, then `python -m src.pipeline.run --config config/district_<name>.yaml` |
+| Docker | `docker build -t gram-vani . && docker run -p 8080:8080 -v $PWD/data:/app/data -v $PWD/outputs:/app/outputs gram-vani` |
+
+Officer write actions (review, publish, run, upload) are localhost-only unless `AGROMET_ADMIN_TOKEN` is set; see
+`.env.example`.
+
+## 13. Future Scope
+
+- **Official block forecasts:** retrain on an archive of IMD GKMS block bulletins once available (the dashboard
+  already accepts them by CSV upload).
+- **Station truth:** add IMD AWS / Maharashtra Mahavedh station data as independent validation
+  ([docs/stations_template.csv](docs/stations_template.csv)).
+- **Radar nowcasting:** replace the short-range NWP layer with Doppler radar / INSAT-3D rainfall.
+- **More districts:** roll out district by district through config files (no code changes).
+- **Real dissemination:** connect the simulated SMS/WhatsApp/IVR outbox to a DLT-registered SMS gateway.
+- **Farmer feedback:** collect ground reports through the app to improve rainfall truth where satellites are weak.
+
+## Limitations
+
+- CHIRPS (0.05°) is the finest free daily rainfall product but is not a rain gauge; its daily timing is weaker than its
+  multi-day totals.
+- Temperature, humidity and wind truth are reanalysis products; wind (ERA5, 0.25°) is coarser than a panchayat.
+- The model is trained on ECMWF forecasts; official IMD block values have different error characteristics.
 
 ## Licence
 
-Code: see [LICENSE](LICENSE). Data products keep their own licences (listed in `data/README.md`). Fonts: Noto Sans
-(SIL OFL 1.1).
+Code: [MIT](LICENSE). Data products keep their own licences (see [docs/data.md](docs/data.md)). Fonts: Noto Sans (SIL OFL 1.1).

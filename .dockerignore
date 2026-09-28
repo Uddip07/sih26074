@@ -1,9 +1,10 @@
 .venv
 .git
+.claude
 data
 outputs
-scratch
-10m_physical
-10m_cultural
+tests
+assets
+submission
 **/__pycache__
 *.pyc

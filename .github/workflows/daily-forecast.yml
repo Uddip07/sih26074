@@ -13,4 +13,4 @@ jobs:
         with:
           clean: false
       - name: Live forecast, advisories, bulletins
-        run: python -m src.pipeline.run --only forecast verify --source live
+        run: python -m src.pipeline.scheduler --once

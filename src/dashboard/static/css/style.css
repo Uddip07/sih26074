@@ -152,7 +152,11 @@ footer.app { font-size: 11px; color: var(--ink-2); padding: 6px var(--sp4); bord
 @media (max-width: 560px) {
   .toolbar { padding: var(--sp2); gap: var(--sp2); }
   .field select, .field input[type=search] { min-width: 0; width: 100%; }
-  .field { flex: 1 1 45%; }
+  .toolbar .brand { flex: 1 1 100%; border-right: 0; padding-right: 0; }
+  .field { flex: 1 1 calc(50% - var(--sp2)); min-width: 0; }
+  .field .seg { display: flex; width: 100%; }
+  .field .seg button { flex: 1 1 0; min-width: 0; white-space: normal; line-height: 1.2; }
+  .issue-date { min-width: 0; }
   input[type=range] { width: 100%; }
   .kpis { grid-template-columns: 1fr 1fr; }
 }

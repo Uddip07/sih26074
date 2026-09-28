@@ -4,12 +4,12 @@ One-command pipeline runner (audit 7.1, features F24/F25).
     python -m src.pipeline.run                         # everything, skipping stages whose outputs exist
     python -m src.pipeline.run --from static           # rebuild from a stage onwards
     python -m src.pipeline.run --only train evaluate   # selected stages
-    python -m src.pipeline.run --config config/district_satara.yaml   # another district, no code changes
-    python -m src.pipeline.run --only forecast --source live          # today's operational run
+    python -m src.pipeline.run --config config/district_<name>.yaml   # another district, no code changes
+    python -m src.pipeline.run --only forecast                         # today's operational (live) forecast
 
 Stage order (each stage's outputs are checked before running):
 boundaries -> terrain -> landcover -> hydro -> soil -> ndvi -> chirps -> era5 -> imd -> nwp ->
-static -> dataset -> train -> perfect_prognosis -> dl_ablation -> evaluate -> report -> forecast -> verify -> docs
+static -> dataset -> train -> perfect_prognosis -> dl_ablation -> evaluate -> report -> forecast -> docs
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ class Stage:
     name: str
     outputs: Callable[[Config], list]
     run: Callable[[Config, argparse.Namespace], object]
-    optional: bool = False  # failure is logged, pipeline continues (independent-check data only)
+    optional: bool = False  # failure is logged, pipeline continues: only for validation-only extras
 
 
 def _it(c: Config, *names):
@@ -75,19 +75,7 @@ def _stages() -> list[Stage]:
     def forecast(c, a):
         from src.pipeline.predict import run
 
-        if a.source == "live":
-            return run(c, c.today(), "live")["meta"]
-        # replay the most recent archived issues so the dashboard has real, verifiable issues
-        import pandas as pd
-
-        fc = pd.read_parquet(c.paths.interim / "block_forecasts.parquet")
-        issues = sorted(fc.groupby("issue_date")["lead_day"].nunique().loc[lambda s: s == 5].index)[-a.replay:]
-        return [run(c, d.date(), "archive")["meta"]["issue_date"] for d in issues]
-
-    def verify(c, a):
-        from src.pipeline.verify import run
-
-        return run(c)
+        return run(c, c.today(), "live")["meta"]
 
     def docs(c, a):
         from src.pipeline.docs import build
@@ -109,11 +97,10 @@ def _stages() -> list[Stage]:
         Stage("terrain", lambda c: _it(c, "gp_terrain.parquet"), lambda c, a: terrain.build(c)),
         Stage("landcover", lambda c: _it(c, "gp_landcover.parquet"), lambda c, a: landcover.build(c)),
         Stage("hydro", lambda c: _it(c, "gp_hydro.parquet"), lambda c, a: hydro.build(c)),
-        Stage("soil", lambda c: _it(c, "gp_soil.parquet"), lambda c, a: soil.build(c), optional=True),
-        Stage("ndvi", lambda c: _it(c, "gp_ndvi.parquet"), lambda c, a: ndvi.build(c), optional=True),
+        Stage("soil", lambda c: _it(c, "gp_soil.parquet"), lambda c, a: soil.build(c)),
+        Stage("ndvi", lambda c: _it(c, "gp_ndvi.parquet"), lambda c, a: ndvi.build(c)),
         Stage("chirps", lambda c: _it(c, "gp_rain_obs.parquet", "gp_climatology.parquet"), lambda c, a: chirps.build(c)),
         Stage("era5", lambda c: _it(c, "gp_met_obs.parquet"), lambda c, a: era5land.build(c)),
-        Stage("imerg", lambda c: _it(c, "gp_rain_imerg.parquet"), lambda c, a: __import__("src.ingest.imerg", fromlist=["build"]).build(c), optional=True),
         Stage("imd", lambda c: _it(c, "block_rain_imd.parquet"), lambda c, a: imd_gridded.build(c), optional=True),
         Stage("nwp", lambda c: _it(c, "block_forecasts.parquet"), lambda c, a: nwp_forecast.fetch_archive(c)),
         Stage("static", lambda c: _it(c, "gp_static.parquet"), static),
@@ -125,9 +112,8 @@ def _stages() -> list[Stage]:
               lambda c, a: __import__("src.models.dl_ablation", fromlist=["run"]).run(c, epochs=30), optional=True),
         Stage("evaluate", lambda c: [c.paths.reports / "evaluation.json"], evaluate),
         Stage("report", lambda c: [c.paths.reports / "report.html"], report),
-        Stage("forecast", lambda c: [c.paths.web / "issues" / "index.json"], forecast),
-        Stage("verify", lambda c: [c.paths.reports / "verification.json"], verify),
-        Stage("docs", lambda c: [c.paths.root / "data" / "README.md"], docs),
+        Stage("forecast", lambda c: [c.paths.forecasts / c.today().isoformat() / "meta.json"], forecast),
+        Stage("docs", lambda c: [c.paths.root / "docs" / "data.md"], docs),
     ]
 
 
@@ -139,8 +125,6 @@ def main(argv: list[str] | None = None) -> None:
     ap.add_argument("--force", action="store_true", help="re-run even if outputs exist")
     ap.add_argument("--no-tune", action="store_true")
     ap.add_argument("--no-lobo", action="store_true")
-    ap.add_argument("--source", choices=["live", "archive"], default="archive")
-    ap.add_argument("--replay", type=int, default=14, help="archived issues to replay in the forecast stage")
     a = ap.parse_args(argv)
     cfg = load_config(a.config)
     cfg.paths.ensure()

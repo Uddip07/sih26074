@@ -4,7 +4,7 @@ Data provenance manifest.
 Every dataset the pipeline writes is registered here with its source, licence,
 retrieval time, row count and SHA-256, so anyone can check where a number came
 from and whether a file changed. The manifest lives at
-``data/<district>/manifest.json`` and is rendered into ``data/README.md``.
+``data/<district>/manifest.json`` and is rendered into ``docs/data.md``.
 """
 
 from __future__ import annotations

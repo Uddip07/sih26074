@@ -3,7 +3,7 @@ Operational inference: block forecast in -> panchayat forecast + advisories + bu
 
 Sources of the block forecast (``source``):
 * ``live``: today's ECMWF IFS 0.25° run via Open-Meteo, aggregated to blocks exactly as in training;
-* ``archive``: a past issue date from ``block_forecasts.parquet`` (replay / demo / verification);
+* ``archive``: a past issue date from ``block_forecasts.parquet`` (re-running a past date);
 * ``csv``: a block-forecast table supplied by the DAMU (e.g. the official IMD GKMS block
   values). Columns: ``block_lgd`` or ``block_name``, ``lead_day`` (1-5) and ``rain``,
   ``tmax``, ``tmin``, ``rh``, ``wind``. Validated strictly by ``validate_block_csv``.

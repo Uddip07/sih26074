@@ -17,11 +17,10 @@ from __future__ import annotations
 import io
 import json
 import os
-from datetime import date, timedelta
+from datetime import date
 from functools import lru_cache
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -219,11 +218,6 @@ def report():
     if not p.exists():
         raise HTTPException(404, "report not generated yet - run: python -m src.pipeline.run --only report")
     return HTMLResponse(p.read_text(encoding="utf-8"))
-
-
-@app.get("/api/verification")
-def verification():
-    return _json_file(cfg.paths.reports / "verification.json", "verification")
 
 
 @app.get("/api/issues")
@@ -479,10 +473,3 @@ def csv_template():
         for k in cfg.lead_days:  # values left empty: the officer enters the official block forecast
             lines.append(f"{r.block_lgd},{r.block_name},{k},,,,,")
     return "\n".join(lines)
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run("src.dashboard.app:app", host=cfg.dashboard["server"]["host"], port=int(cfg.dashboard["server"]["port"]))
-    _ = (np, timedelta)

@@ -470,6 +470,20 @@ function buildControls() {
   $("leadRange").max = h.length;
 }
 
+/* ---------------------------------------------------------------- deep links
+   ?gp=<LGD code>&day=<n>&layer=<key>&tab=<gp|score|officer> opens the page in that state (shareable). */
+async function applyDeepLink() {
+  const q = new URLSearchParams(location.search);
+  if (q.has("layer") && D().layers[q.get("layer")]) { S.v = q.get("layer"); $("varSel").value = S.v; }
+  if (q.has("day")) {
+    const i = S.data.leads.indexOf(Number(q.get("day")));
+    if (i >= 0) { S.lead = i; $("leadRange").value = i + 1; updateLeadLabel(); }
+  }
+  restyle();
+  if (q.has("gp") && S.data.gp[q.get("gp")]) await selectGp(q.get("gp"));
+  if (q.has("tab")) activateTab(`t-${q.get("tab")}`);
+}
+
 /* ---------------------------------------------------------------- init */
 async function init(reloadIssues = false) {
   if (!reloadIssues) {
@@ -490,6 +504,7 @@ async function init(reloadIssues = false) {
   if (!S.issues.length) { banner("No forecast issues yet. Run: python -m src.pipeline.run --only forecast"); return; }
   $("issueSel").textContent = S.issues[0];
   await loadIssue(S.issues[0]);
+  if (!reloadIssues) applyDeepLink();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

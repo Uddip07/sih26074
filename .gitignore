@@ -44,7 +44,9 @@ scratch/
 *.log
 open-meteo-*.csv
 
-# Credentials
+# Credentials / secrets
+*.pem
+*.key
 .netrc
 _netrc
 ~/.netrc
@@ -73,14 +75,15 @@ outputs/*/web/verification_gp_lead1.parquet
 *.nc
 *.grd
 *.part
-10m_physical/
-10m_cultural/
 .env
 
 # OS generated files
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Node (none used; guard against accidental installs)
+node_modules/
 
 # IDE & Editor configs
 .vscode/
